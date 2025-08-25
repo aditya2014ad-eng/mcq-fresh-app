@@ -5,6 +5,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Text/Markdown MCQ → Quiz → PDF</title>
+  <style>
+  body {
+    overscroll-behavior-y: contain; /* disable pull-to-refresh */
+  }
+  </style>
 <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 <!-- PWA manifest -->
 <link rel="manifest" href="manifest.json">
@@ -1034,5 +1039,34 @@ if ('serviceWorker' in navigator) {
     .then(() => console.log("Service Worker Registered"));
 }
 </script>
+  <!-- === ADD-ON: Refresh Button === -->
+<script>
+(function(){
+  function refreshApp() {
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        for (let name of names) caches.delete(name);
+      });
+    }
+    location.reload(true);
+  }
+
+  // create button
+  const btn = document.createElement("button");
+  btn.textContent = "🔄 Refresh";
+  btn.style.cssText =
+    "padding:8px 14px;border:1px solid #2a2e3a;border-radius:8px;background:#0f1219;color:#e6e6e6;cursor:pointer;margin:10px;";
+
+  btn.onclick = refreshApp;
+
+  // place it at top under header (or change to bottom if you want)
+  window.addEventListener("DOMContentLoaded", () => {
+    const header = document.querySelector("header");
+    if (header) header.appendChild(btn);
+    else document.body.appendChild(btn); // fallback
+  });
+})();
+</script>
+<!-- === /ADD-ON === -->
 </body>
 </html>
