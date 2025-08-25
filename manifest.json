@@ -1,34 +1,26 @@
 {
   "name": "MCQ Quiz",
   "short_name": "MCQ Quiz",
-  "id": "/mcq-fresh-app",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Exam-style MCQ practice from pasted text.",
+  "id": "/mcq-fresh-app/",
+  "start_url": "/mcq-fresh-app/",
+  "scope": "/mcq-fresh-app/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1f6feb",
-  "orientation": "portrait-primary",
-  "description": "Exam style MCQ practice app from simple text MCQs.",
-  "launch_handler": {
-    "client_mode": "focus-existing"
-  },
+  "orientation": "portrait",
   "icons": [
-    {
-      "src": "mcq icon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "logo 2.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "mcq icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "logo 2.png",   "sizes": "512x512", "type": "image/png" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "maskable any" }
   ],
   "screenshots": [
-    {
-      "src": "screenshot1.png",
-      "sizes": "540x960",
-      "type": "image/png"
-    }
-  ]
+    { "src": "screenshot1.png", "sizes": "540x960", "type": "image/png" }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
+  "lang": "en"
 }
