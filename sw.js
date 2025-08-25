@@ -1,66 +1,53 @@
-// MCQ Quiz App Service Worker — cache-first with offline navigation fallback
-const CACHE = 'mcq-cache-v3';
+/* Simple cache-first service worker for MCQ Quiz */
+const CACHE_NAME = 'mcq-quiz-v1';
 const ASSETS = [
-  './fresh mcq app.html',
+  './',
+  './index.html',
   './manifest.json',
   './sw.js',
   './favicon.png',
-  './mcq icon.png',
   './logo 2.png',
-  './apple-touch-icon.png'
+  './mcq icon.png',
+  './apple-touch-icon.png',
+  './screenshot1.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => (k === CACHE_NAME ? null : caches.delete(k))))
+    )
   );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  const url = new URL(req.url);
+  if (req.method !== 'GET') return;
 
-  // Only handle same-origin requests
-  if (url.origin !== self.location.origin) return; // let the browser handle it
-
-  // App shell navigation: serve index.html so the app works offline
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      caches.match('./fresh mcq app.html').then((cached) =>
-        cached || fetch('./fresh mcq app.html').then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./fresh mcq app.html', copy));
+  event.respondWith(
+    caches.match(req).then(cached => {
+      if (cached) return cached;
+      return fetch(req)
+        .then(res => {
+          // Cache same-origin GET responses
+          try {
+            const url = new URL(req.url);
+            if (url.origin === self.location.origin && res.ok) {
+              const resClone = res.clone();
+              caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+            }
+          } catch (_) {}
           return res;
         })
-      )
-    );
-    return;
-  }
-
-  // For same-origin GET requests, try cache first, then network and cache the result
-  if (req.method === 'GET') {
-    event.respondWith(
-      caches.match(req).then((cached) =>
-        cached || fetch(req).then((res) => {
-          // Only cache successful basic responses
-          if (res && res.status === 200 && res.type === 'basic') {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
-          }
-          return res;
-        }).catch(() => {
-          // As a last resort, if the requested asset is the icon/manifest, try the cache
-          return caches.match(req);
-        })
-      )
-    );
-  }
+        .catch(() => caches.match('./index.html'));
+    })
+  );
 });
