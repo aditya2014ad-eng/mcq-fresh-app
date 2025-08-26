@@ -1069,40 +1069,4 @@ if ('serviceWorker' in navigator) {
 </script>
 <!-- === /ADD-ON === -->
 </body>
-  <!-- === ADD-ON: Block pull-to-refresh on mobile === -->
-<script>
-(function () {
-  // 1) Inject CSS to stop the browser's overscroll refresh and give your main area its own scroll
-  const css = `
-    html, body { overscroll-behavior-y: none; height: 100%; }
-    main { overscroll-behavior: contain; height: 100vh; overflow: auto; -webkit-overflow-scrolling: touch; }
-  `;
-  const style = document.createElement('style');
-  style.textContent = css;
-  document.head.appendChild(style);
-
-  // 2) Hard block the pull-down gesture at the very top (Android Chrome/installed PWA)
-  let startY = 0;
-  window.addEventListener('touchstart', (e) => {
-    const t = e.touches && e.touches[0];
-    startY = t ? t.clientY : 0;
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    const t = e.touches && e.touches[0];
-    if (!t) return;
-    const scrollTop =
-      window.scrollY ||
-      document.documentElement.scrollTop ||
-      document.body.scrollTop || 0;
-
-    const pullingDown = (t.clientY - startY) > 5;
-    // If we are at the top and user is pulling down, prevent default (blocks pull-to-refresh)
-    if (scrollTop <= 0 && pullingDown) {
-      e.preventDefault();
-    }
-  }, { passive: false });
-})();
-</script>
-<!-- === /ADD-ON === -->
 </html>
