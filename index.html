@@ -221,6 +221,12 @@ html[data-theme="light"] code{ background:#f5f7fb !important; border:1px solid #
       <button id="loadBtn">Load</button>
       <button id="exampleBtn">Insert Example</button>
     </div>
+    <div class="row" style="margin-top:8px">
+      <input id="setTitle" type="text" placeholder="Set title (e.g., 'Unit 5 GI')" style="flex:1;min-width:220px">
+      <button id="saveSet">Save Set</button>
+      <select id="savedList" style="min-width:240px"><option value="">Saved sets…</option></select>
+      <button id="deleteSet">Delete</button>
+    </div>
     <p class="muted" style="margin:8px 0 6px">
       Paste MCQs (supports <b>bold</b>/<i>italics</i>, headers like “## …”, options like “- A) …/A.”, and <code>Answer:</code> / <code>Explanation:</code>).
     </p>
@@ -265,9 +271,91 @@ const finishBtn = document.getElementById('finishBtn');
 const pdfBtn = document.getElementById('pdfBtn');
 const scoreEl = document.getElementById('score');
 
+const setTitle = document.getElementById('setTitle');
+const saveSetBtn = document.getElementById('saveSet');
+const savedList = document.getElementById('savedList');
+const deleteSetBtn = document.getElementById('deleteSet');
+
 let QUIZ = [];
 let ANSWERS = {};
 let FINISHED = false;
+
+/* ---- Saved Sets (localStorage) ----------------------------------- */
+const LS_SETS_KEY = 'mcq-sets-v1';   // map: { title: rawText }
+const LS_LAST_KEY = 'mcq-last';      // last raw text autosave
+
+function getSets(){
+  try { return JSON.parse(localStorage.getItem(LS_SETS_KEY)||'{}') || {}; }
+  catch { return {}; }
+}
+function putSets(sets){ localStorage.setItem(LS_SETS_KEY, JSON.stringify(sets)); }
+function refreshSavedList(){
+  if (!savedList) return;
+  const sets = getSets();
+  const titles = Object.keys(sets).sort((a,b)=>a.localeCompare(b));
+  const current = savedList.value;
+  savedList.innerHTML = '<option value="">Saved sets…</option>' +
+    titles.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  if (current && titles.includes(current)) savedList.value = current;
+}
+
+// Auto-save textarea content with a small debounce
+let __saveTimer = null;
+rawEl.addEventListener('input', ()=>{
+  clearTimeout(__saveTimer);
+  __saveTimer = setTimeout(()=>{
+    try { localStorage.setItem(LS_LAST_KEY, rawEl.value||''); } catch {}
+  }, 250);
+});
+// Restore last session text on load if textarea is empty
+(function(){
+  try {
+    const last = localStorage.getItem(LS_LAST_KEY);
+    if (last && !rawEl.value) rawEl.value = last;
+  } catch {}
+})();
+
+// Wire up Save / Load / Delete of named sets
+if (saveSetBtn) saveSetBtn.onclick = ()=>{
+  const title = (setTitle?.value || '').trim();
+  const text = (rawEl?.value || '').trim();
+  if (!text){ alert('Nothing to save. Paste or load MCQs first.'); return; }
+  if (!title){ alert('Give this set a title first.'); return; }
+  const sets = getSets();
+  if (sets[title] && !confirm(`Replace existing set "${title}"?`)) return;
+  sets[title] = text;
+  putSets(sets);
+  refreshSavedList();
+  if (savedList) savedList.value = title;
+  parseMsg.textContent = `Saved set: ${title}`;
+};
+
+if (savedList) savedList.onchange = ()=>{
+  const t = savedList.value;
+  if (!t) return;
+  const sets = getSets();
+  if (sets[t]){
+    rawEl.value = sets[t];
+    if (setTitle) setTitle.value = t;
+    parseMsg.textContent = `Loaded set: ${t}`;
+  }
+};
+
+if (deleteSetBtn) deleteSetBtn.onclick = ()=>{
+  const t = savedList?.value || setTitle?.value || '';
+  if (!t){ alert('Select a saved set to delete.'); return; }
+  const sets = getSets();
+  if (!sets[t]){ alert('No such saved set.'); return; }
+  if (!confirm(`Delete saved set "${t}"?`)) return;
+  delete sets[t];
+  putSets(sets);
+  refreshSavedList();
+  if (savedList) savedList.value = '';
+  parseMsg.textContent = 'Deleted.';
+};
+
+// Populate dropdown at startup
+refreshSavedList();
 
 /* ---------------- Utilities ---------------- */
 const A = (i)=>String.fromCharCode(65+i);
@@ -1034,424 +1122,5 @@ if ('serviceWorker' in navigator) {
     .then(() => console.log("Service Worker Registered"));
 }
 </script>
-  <!-- === ADD-ON: Refresh Button === -->
-<script>
-(function(){
-  function refreshApp() {
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        for (let name of names) caches.delete(name);
-      });
-    }
-    location.reload(true);
-  }
-
-  // create button
-  const btn = document.createElement("button");
-  btn.textContent = "🔄 Refresh";
-  btn.style.cssText =
-    "padding:8px 14px;border:1px solid #2a2e3a;border-radius:8px;background:#0f1219;color:#e6e6e6;cursor:pointer;margin:10px;";
-
-  btn.onclick = refreshApp;
-
-  // place it at top under header (or change to bottom if you want)
-  window.addEventListener("DOMContentLoaded", () => {
-    const header = document.querySelector("header");
-    if (header) header.appendChild(btn);
-    else document.body.appendChild(btn); // fallback
-  });
-})();
-</script>
-<!-- === /ADD-ON === -->
-  <!-- === ADD-ON: MCQ Bank (IndexedDB Save/Load/Edit/Export) === -->
-<style>
-  /* Tiny modal styles */
-  .bank-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:9998}
-  .bank-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9999}
-  .bank-card{max-width:900px;width:95%;background:var(--card,#fff);color:var(--ink,#111);
-    border:1px solid var(--border,#d0d7e2);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);overflow:hidden}
-  .bank-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border,#d0d7e2)}
-  .bank-h b{font-size:16px}
-  .bank-body{padding:12px 16px;display:grid;grid-template-columns:280px 1fr;gap:12px}
-  .bank-col{border:1px solid var(--border,#d0d7e2);border-radius:10px;padding:10px;background:var(--bg-soft,#fafbff)}
-  .bank-row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
-  .bank-list{max-height:48vh;overflow:auto;margin-top:6px}
-  .bank-item{padding:8px;border:1px solid var(--border,#d0d7e2);border-radius:8px;margin:6px 0;background:var(--bg,#fff);cursor:pointer}
-  .bank-item small{opacity:.7;margin-left:6px}
-  .bank-actions button{margin-right:8px}
-  .bank-input{width:100%;padding:8px;border:1px solid var(--border,#d0d7e2);border-radius:8px;background:var(--bg,#fff);color:var(--ink,#111)}
-  .bank-tag{padding:2px 8px;border:1px solid var(--border,#d0d7e2);border-radius:100px;background:var(--bg,#fff)}
-  .bank-empty{opacity:.7;padding:8px}
-  @media (max-width:800px){ .bank-body{grid-template-columns:1fr} }
-</style>
-
-<div class="bank-modal-backdrop" id="bankBackdrop"></div>
-<div class="bank-modal" id="bankModal">
-  <div class="bank-card">
-    <div class="bank-h">
-      <b>📚 My MCQ Bank</b>
-      <div class="bank-actions">
-        <button id="bankExport">Export JSON</button>
-        <button id="bankImport">Import JSON</button>
-        <button id="bankClose">✕</button>
-      </div>
-    </div>
-    <div class="bank-body">
-      <div class="bank-col">
-        <div class="bank-row">
-          <input id="bankSearch" class="bank-input" placeholder="Search title…" />
-        </div>
-        <div class="bank-row">
-          <input id="bankNewFolder" class="bank-input" placeholder="New folder name…" />
-          <button id="bankAddFolder">Add</button>
-        </div>
-        <div class="bank-row">
-          <label>Folder:</label>
-          <select id="bankFolder" class="bank-input"></select>
-          <button id="bankAll">All</button>
-        </div>
-        <div id="bankList" class="bank-list"></div>
-      </div>
-      <div class="bank-col" id="bankDetail">
-        <div class="bank-row">
-          <input id="bankTitle" class="bank-input" placeholder="Title" />
-        </div>
-        <div class="bank-row">
-          <label>Folder:</label>
-          <select id="bankEditFolder" class="bank-input" style="max-width:200px"></select>
-          <span class="bank-tag" id="bankMeta"></span>
-        </div>
-        <div class="bank-row">
-          <button id="bankLoad">Load into Quiz</button>
-          <button id="bankSaveMeta">Save Changes</button>
-          <button id="bankDelete">Delete</button>
-        </div>
-        <div style="margin-top:8px">
-          <details>
-            <summary>Show raw text</summary>
-            <textarea id="bankRaw" class="bank-input" style="min-height:160px"></textarea>
-            <div class="bank-row">
-              <button id="bankApplyRaw">Replace with this raw + Parse</button>
-            </div>
-          </details>
-        </div>
-        <div id="bankEmpty" class="bank-empty">Select a saved set to view details.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-(function(){
-  // ---- tiny IndexedDB helper ----
-  const DB_NAME = 'mcqbank-v1';
-  const DB_STORE = 'sets';
-  const DB_FOLDERS = 'folders';
-  function idb(){ return new Promise((res,rej)=>{
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e)=>{
-      const db = req.result;
-      if(!db.objectStoreNames.contains(DB_STORE)){
-        const s = db.createObjectStore(DB_STORE, { keyPath:'id', autoIncrement:true });
-        s.createIndex('by_title','title',{unique:false});
-        s.createIndex('by_folder','folder',{unique:false});
-        s.createIndex('by_updated','updatedAt',{unique:false});
-      }
-      if(!db.objectStoreNames.contains(DB_FOLDERS)){
-        db.createObjectStore(DB_FOLDERS, { keyPath:'name' });
-      }
-    };
-    req.onsuccess = ()=>res(req.result);
-    req.onerror = ()=>rej(req.error);
-  });}
-  function tx(db, store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
-
-  async function dbAddSet(set){
-    const db = await idb();
-    set.createdAt = set.createdAt || Date.now();
-    set.updatedAt = Date.now();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').add(set);
-      r.onsuccess = ()=>res(r.result);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbPutSet(set){
-    const db = await idb();
-    set.updatedAt = Date.now();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').put(set);
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbGetAll(folder, search){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const s = tx(db, DB_STORE);
-      const out = [];
-      const q = s.index('by_updated').openCursor(null, 'prev');
-      q.onsuccess = ()=>{
-        const cur = q.result;
-        if(!cur) return res(out);
-        const v = cur.value;
-        if (!folder || folder==='__ALL__' || v.folder === folder){
-          if(!search || v.title.toLowerCase().includes(search.toLowerCase())) out.push(v);
-        }
-        cur.continue();
-      };
-      q.onerror = ()=>rej(q.error);
-    });
-  }
-  async function dbDelete(id){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').delete(id);
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbFoldersList(){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const s = tx(db, DB_FOLDERS);
-      const out = [];
-      const q = s.openCursor();
-      q.onsuccess = ()=>{ const cur = q.result; if(!cur) return res(out); out.push(cur.value.name); cur.continue(); };
-      q.onerror = ()=>rej(q.error);
-    });
-  }
-  async function dbFolderAdd(name){
-    name = (name||'').trim();
-    if(!name) return;
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_FOLDERS, 'readwrite').put({name});
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-
-  // ---- UI hooks / helpers ----
-  const $ = (q)=>document.querySelector(q);
-  const $$= (q)=>Array.from(document.querySelectorAll(q));
-  const els = {
-    saveBtn: null, bankBtn: null,
-    modal: $('#bankModal'), backdrop: $('#bankBackdrop'),
-    list: $('#bankList'),
-    folderSel: $('#bankFolder'),
-    search: $('#bankSearch'),
-    newFolder: $('#bankNewFolder'),
-    addFolder: $('#bankAddFolder'),
-    allBtn: $('#bankAll'),
-    title: $('#bankTitle'),
-    editFolder: $('#bankEditFolder'),
-    meta: $('#bankMeta'),
-    load: $('#bankLoad'),
-    saveMeta: $('#bankSaveMeta'),
-    del: $('#bankDelete'),
-    raw: $('#bankRaw'),
-    applyRaw: $('#bankApplyRaw'),
-    empty: $('#bankEmpty'),
-    close: $('#bankClose'),
-    exportBtn: $('#bankExport'),
-    importBtn: $('#bankImport')
-  };
-  let current = null; // currently selected record in the modal
-
-  // Add two buttons near your Parse area
-  function addTopButtons(){
-    const parseBtn = document.getElementById('parseBtn') || $$('button').find(b=>/parse/i.test(b.textContent||''));
-    if (!parseBtn) return;
-    if (!els.saveBtn){
-      els.saveBtn = document.createElement('button');
-      els.saveBtn.textContent = '💾 Save Set';
-      els.saveBtn.style.marginLeft = '8px';
-      els.saveBtn.onclick = saveCurrentSet;
-      parseBtn.parentElement.appendChild(els.saveBtn);
-    }
-    if (!els.bankBtn){
-      els.bankBtn = document.createElement('button');
-      els.bankBtn.textContent = '📚 Open Bank';
-      els.bankBtn.style.marginLeft = '8px';
-      els.bankBtn.onclick = openModal;
-      parseBtn.parentElement.appendChild(els.bankBtn);
-    }
-  }
-
-  // Try to infer a title from the text: first markdown heading or first line
-  function inferTitle(raw){
-    const lines = (raw||'').split(/\r?\n/);
-    const h = lines.find(l => /^\s*#{1,6}\s+/.test(l));
-    if (h) return h.replace(/^\s*#{1,6}\s+/,'').trim().slice(0,120);
-    const first = lines.find(l => l.trim().length>0);
-    return (first||'Untitled').replace(/[*_`#>]+/g,'').trim().slice(0,120);
-  }
-
-  // Save the current QUIZ + raw textarea
-  async function saveCurrentSet(){
-    try{
-      const rawEl = document.getElementById('raw') || document.querySelector('textarea');
-      const raw = String(rawEl?.value||'').trim();
-      if (!raw) { alert('Nothing to save — paste or load MCQs first.'); return; }
-      if (!window.QUIZ || !Array.isArray(window.QUIZ) || window.QUIZ.length===0){
-        if(!confirm('No parsed items found. Save raw text anyway?')) return;
-      }
-      // choose folder (optional): use prompt for quick UX
-      const folders = await dbFoldersList();
-      const folder = prompt('Folder (optional). Existing: ' + (folders.join(', ')||'(none)')) || '';
-      if (folder) await dbFolderAdd(folder);
-
-      const set = {
-        title: inferTitle(raw),
-        folder: folder || '',
-        items: window.QUIZ||[],
-        rawText: raw
-      };
-      const id = await dbAddSet(set);
-      alert('Saved ✓ (' + set.title + ')');
-    }catch(e){
-      console.error(e); alert('Save failed: ' + (e.message||e));
-    }
-  }
-
-  // Modal controls
-  function openModal(){ els.backdrop.style.display='block'; els.modal.style.display='flex'; refreshFolders().then(listSets); resetDetail(); }
-  function closeModal(){ els.modal.style.display='none'; els.backdrop.style.display='none'; }
-  els.close.onclick = closeModal; els.backdrop.onclick = closeModal;
-
-  async function refreshFolders(){
-    const list = await dbFoldersList();
-    const all = ['__ALL__', ...list];
-    const opts = all.map(n=>`<option value="${n}">${n==='__ALL__'?'All folders':n}</option>`).join('');
-    els.folderSel.innerHTML = opts;
-    els.editFolder.innerHTML = list.map(n=>`<option value="${n}">${n}</option>`).join('');
-  }
-
-  els.addFolder.onclick = async ()=>{
-    const name = (els.newFolder.value||'').trim();
-    if (!name) return;
-    await dbFolderAdd(name);
-    els.newFolder.value = '';
-    await refreshFolders();
-    await listSets();
-  };
-  els.allBtn.onclick = ()=>{ els.folderSel.value='__ALL__'; listSets(); };
-  els.folderSel.onchange = listSets;
-  els.search.oninput = ()=>{ listSets(); };
-
-  async function listSets(){
-    const folder = els.folderSel.value || '__ALL__';
-    const term = els.search.value || '';
-    const rows = await dbGetAll(folder, term);
-    if (!rows.length){ els.list.innerHTML = `<div class="bank-empty">No saved sets.</div>`; return; }
-    els.list.innerHTML = rows.map(r => `
-      <div class="bank-item" data-id="${r.id}">
-        <b>${escapeHtml(r.title)}</b> ${r.folder?`<small>• ${escapeHtml(r.folder)}</small>`:''}
-        <div><small>${new Date(r.updatedAt).toLocaleString()}</small></div>
-      </div>
-    `).join('');
-    els.list.querySelectorAll('.bank-item').forEach(div=>{
-      div.onclick = async ()=>{
-        const id = +div.dataset.id;
-        const folder = els.folderSel.value || '__ALL__';
-        const rows = await dbGetAll(folder, els.search.value||'');
-        const sel = rows.find(x=>x.id===id);
-        if (sel) showDetail(sel);
-      };
-    });
-  }
-
-  function resetDetail(){
-    current = null;
-    els.title.value = '';
-    els.editFolder.value = '';
-    els.meta.textContent = '';
-    els.raw.value = '';
-    els.empty.style.display = '';
-  }
-  function showDetail(rec){
-    current = rec;
-    els.title.value = rec.title||'';
-    els.editFolder.value = rec.folder||'';
-    els.meta.textContent = `${(rec.items||[]).length} items • id ${rec.id}`;
-    els.raw.value = rec.rawText||'';
-    els.empty.style.display = 'none';
-  }
-
-  els.saveMeta.onclick = async ()=>{
-    if (!current) return;
-    current.title = els.title.value.trim() || current.title;
-    current.folder = els.editFolder.value || '';
-    current.rawText = els.raw.value;
-    await dbPutSet(current);
-    alert('Updated ✓');
-    await listSets();
-  };
-
-  els.del.onclick = async ()=>{
-    if (!current) return;
-    if (!confirm('Delete this saved set?')) return;
-    await dbDelete(current.id);
-    resetDetail();
-    await listSets();
-  };
-
-  els.load.onclick = async ()=>{
-    if (!current) return;
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (ta) ta.value = current.rawText || '';
-    // click your existing Parse button to re-parse and render
-    (document.getElementById('parseBtn') || document.querySelector('[id*="parse"]'))?.click();
-    closeModal();
-  };
-
-  els.applyRaw.onclick = async ()=>{
-    if (!current) return;
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (ta) ta.value = els.raw.value || '';
-    (document.getElementById('parseBtn') || document.querySelector('[id*="parse"]'))?.click();
-  };
-
-  // Export / Import
-  els.exportBtn.onclick = async ()=>{
-    const rows = await dbGetAll('__ALL__','');
-    const blob = new Blob([JSON.stringify(rows,null,2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mcq-bank.json';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  };
-  els.importBtn.onclick = async ()=>{
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.json,application/json';
-    inp.onchange = async ()=>{
-      const f = inp.files?.[0]; if(!f) return;
-      const txt = await f.text();
-      try{
-        const arr = JSON.parse(txt);
-        if(!Array.isArray(arr)) throw new Error('Invalid JSON format');
-        for(const rec of arr){
-          // strip any old id; let IndexedDB assign new one
-          const {id, ...rest} = rec || {};
-          await dbAddSet(rest);
-        }
-        alert('Import complete ✓');
-        await listSets();
-      }catch(e){ alert('Import failed: '+(e.message||e)); }
-    };
-    inp.click();
-  };
-
-  // small util
-  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-  // mount buttons
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addTopButtons);
-  else addTopButtons();
-})();
-</script>
-<!-- === /ADD-ON: MCQ Bank === -->
 </body>
 </html>
