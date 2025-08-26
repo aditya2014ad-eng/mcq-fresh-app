@@ -1,8 +1,8 @@
-
-/* MCQ Quiz PWA Service Worker — network-first for HTML, cache-first for assets */
-const VERSION = 'v8';                        // << bump this on every release
+/* MCQ Quiz PWA Service Worker — clean, versioned */
+const VERSION = 'v9';   // ⬅️ bump this number on every release
 const CACHE_NAME = `mcq-quiz-${VERSION}`;
 
+// Files to precache
 const ASSETS = [
   './',
   './index.html',
@@ -14,93 +14,77 @@ const ASSETS = [
   './screenshot1.png'
 ];
 
+// Install — cache app shell
 self.addEventListener('install', event => {
-  console.log('[SW]', VERSION, 'installing…');
+  console.log('[SW] Installing', VERSION);
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
-  self.skipWaiting(); // allow immediate activation after install
+  self.skipWaiting(); // take over immediately
 });
 
+// Activate — remove old caches
 self.addEventListener('activate', event => {
-  console.log('[SW]', VERSION, 'activating…');
+  console.log('[SW] Activating', VERSION);
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => {
-            console.log('[SW] deleting old cache:', k);
-            return caches.delete(k);
-          })
-      )
+      Promise.all(keys.map(k => {
+        if (k !== CACHE_NAME) {
+          console.log('[SW] Deleting old cache', k);
+          return caches.delete(k);
+        }
+      }))
     )
   );
   self.clients.claim();
 });
 
-/* Strategy:
-   - Navigations / HTML: network-first (fresh content), fallback to cache.
-   - Other same-origin GETs: cache-first, then network, then cache it. */
+// Fetch strategy
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  const isSameOrigin = url.origin === self.location.origin;
+  const sameOrigin = url.origin === self.location.origin;
 
-  // Treat top-level navigations (and direct HTML requests) as network-first
-  const isNavigation =
-    req.mode === 'navigate' ||
-    (req.destination === 'document') ||
-    (isSameOrigin && url.pathname.endsWith('.html'));
-
-  if (isNavigation) {
+  // Network-first for navigation/HTML
+  if (req.mode === 'navigate' || (sameOrigin && url.pathname.endsWith('.html'))) {
     event.respondWith(
       (async () => {
         try {
-          // no-store to bypass HTTP cache; rely on SW cache only
           const fresh = await fetch(req, { cache: 'no-store' });
           const cache = await caches.open(CACHE_NAME);
           cache.put('./index.html', fresh.clone());
           return fresh;
         } catch (err) {
-          // offline fallback to cached index
           const cached = await caches.match('./index.html');
-          return cached || new Response('Offline and no cached index.html', { status: 503 });
+          return cached || new Response('Offline', { status: 503 });
         }
       })()
     );
     return;
   }
 
-  // Static assets & other same-origin GETs: cache-first
-  if (isSameOrigin) {
+  // Cache-first for other same-origin assets
+  if (sameOrigin) {
     event.respondWith(
-      (async () => {
-        const cached = await caches.match(req);
+      caches.match(req).then(cached => {
         if (cached) return cached;
-        try {
-          const res = await fetch(req);
+        return fetch(req).then(res => {
           if (res && res.ok) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(req, res.clone());
+            caches.open(CACHE_NAME).then(cache => cache.put(req, res.clone()));
           }
           return res;
-        } catch (err) {
-          // last-resort: maybe fall back to index if request was for something important
-          const fallback = await caches.match('./index.html');
-          return fallback || new Response('Offline', { status: 503 });
-        }
-      })()
+        });
+      })
     );
   }
 });
 
-// Optional: allow page to trigger immediate SW activation
+// Allow page to request immediate activation
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('[SW] skipWaiting requested');
+    console.log('[SW] Skip waiting triggered');
     self.skipWaiting();
   }
 });
