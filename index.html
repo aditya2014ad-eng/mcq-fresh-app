@@ -1,233 +1,142 @@
-
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Text/Markdown MCQ → Quiz → PDF</title>
-<link rel="preconnect" href="https://cdnjs.cloudflare.com">
-<!-- PWA manifest -->
-<link rel="manifest" href="manifest.json">
+<title>MCQ Q-Bank • Text/Markdown → Quiz → PDF</title>
 
-<!-- Theme color for browsers -->
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1f6feb">
 
-<!-- Favicons / App icons -->
+<!-- Favicons / App icons (use your existing files in repo root) -->
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="mcq icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="logo 2.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
-<!-- iOS Home Screen support -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="MCQ Quiz">
 <style>
-  :root { color-scheme: light dark; }
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1115;color:#e6e6e6}
-  header{padding:16px 20px;border-bottom:1px solid #222;background:#0b0d12;position:sticky;top:0}
-  header h1{margin:0;font-size:18px}
-  main{max-width:1000px;margin:auto;padding:18px}
-  .card{border:1px solid #222;border-radius:14px;background:#12141b;margin:14px 0}
-  .card .inner{padding:14px}
-  textarea{width:100%;min-height:260px;background:#0f1219;border:1px solid #2a2e3a;color:#e6e6e6;border-radius:12px;padding:10px}
-  input[type="file"],button{background:#0f1219;border:1px solid #2a2e3a;color:#e6e6e6;border-radius:10px;padding:10px;cursor:pointer}
-  button.primary{background:#1f6feb;border-color:#1f6feb}
-  button:disabled{opacity:.6;cursor:not-allowed}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .q{padding:14px;border:1px solid #2a2e3a;border-radius:12px;margin:10px 0;background:#0f1219}
-  .opts{list-style:none;padding:0;margin:10px 0;display:grid;gap:8px}
-  .opt{padding:10px;border:1px solid #2a2e3a;border-radius:10px;background:#0d1118}
-  .correct{border-color:#2e7d32}
-  .wrong{border-color:#c62828}
-  .muted{opacity:.85}
-  .stats{font-variant-numeric:tabular-nums}
-  .error{border:1px solid #5b1d1d;background:#1b0f11;color:#ffb3b3;padding:10px;border-radius:10px}
-  code{padding:1px 4px;border-radius:5px;background:#0c0f14;border:1px solid #202636}
-
-  /* === UI/UX POLISH OVERRIDES (non-destructive) ===================== */
-
-  /* Theme tokens */
   :root{
-    --bg:#0f1115;
-    --bg-soft:#0f1219;
-    --card:#12141b;
-    --ink:#e6e6e6;
-    --muted:#a8b3cf;
-    --border:#222;
-    --border-soft:#2a2e3a;
-    --opt:#0d1118;
-    --error-bg:#1b0f11;
-    --error-ink:#ffb3b3;
-    --accent:#1f6feb;
-    --accent-ink:#ffffff;
-    --ok:#2e7d32;
-    --bad:#c62828;
-    --shadow:0 6px 24px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
+    color-scheme: light dark;
+    --bg:#0f1115; --bg-soft:#0f1219; --card:#12141b; --ink:#e6e6e6;
+    --muted:#a8b3cf; --border:#222; --border-soft:#2a2e3a; --opt:#0d1118;
+    --error-bg:#1b0f11; --error-ink:#ffb3b3; --accent:#1f6feb; --accent-ink:#fff;
+    --ok:#2e7d32; --bad:#c62828; --shadow:0 6px 24px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
     --radius:14px;
   }
   html[data-theme="light"]{
-    --bg:#f6f7fb;
-    --bg-soft:#ffffff;
-    --card:#ffffff;
-    --ink:#111;
-    --muted:#5b657a;
-    --border:#dcdfe4;
-    --border-soft:#cfd5e1;
-    --opt:#fafafa;
-    --error-bg:#fff5f5;
-    --error-ink:#7a1111;
-    --accent:#1f6feb;
-    --accent-ink:#ffffff;
-    --ok:#2e7d32;
-    --bad:#c62828;
-    --shadow:0 6px 24px rgba(16,24,40,.10), 0 2px 8px rgba(16,24,40,.06);
+    --bg:#ffffff; --bg-soft:#ffffff; --card:#ffffff; --ink:#101828;
+    --muted:#667085; --border:#d0d7e2; --border-soft:#cfd5e1; --opt:#fbfdff;
+    --error-bg:#fff5f5; --error-ink:#7a1111; --shadow:0 8px 24px rgba(16,24,40,.08), 0 2px 8px rgba(16,24,40,.06);
   }
 
-  /* Base */
-  body{ background:var(--bg) !important; color:var(--ink) !important; line-height:1.6; }
-  header{ background:var(--bg-soft) !important; border-bottom:1px solid var(--border) !important; }
-  main{ padding:22px !important; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+  header{position:sticky;top:0;z-index:1;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg-soft)}
+  main{max-width:1000px;margin:auto;padding:18px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{width:28px;height:28px;border-radius:6px}
+  .title{margin:0;font-size:18px}
 
-  /* Cards */
-  .card{ background:var(--card) !important; border-color:var(--border) !important; border-radius:var(--radius) !important; box-shadow:var(--shadow); }
-  .card .inner{ padding:16px !important; }
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+  .pill{border:1px solid var(--border-soft);background:var(--bg-soft);color:var(--ink);padding:8px 10px;border-radius:10px;cursor:pointer}
+  .pill:disabled{opacity:.6;cursor:not-allowed}
 
-  /* Inputs & buttons */
-  textarea{ background:var(--bg-soft) !important; color:var(--ink) !important; border-color:var(--border-soft) !important; border-radius:12px !important; line-height:1.5; }
-  input[type="file"], button{
-    background:var(--bg-soft) !important; color:var(--ink) !important; border:1px solid var(--border-soft) !important;
-    border-radius:10px !important; padding:10px 12px !important; transition:transform .06s ease, box-shadow .12s ease, filter .12s ease;
+  .card{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);margin:14px 0}
+  .inner{padding:16px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+  textarea{width:100%;min-height:260px;background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:12px;padding:10px;line-height:1.5}
+  input[type="file"],input[type="text"],select{background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px}
+  input[type="text"]{min-width:220px;flex:1}
+  button{background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;cursor:pointer;transition:transform .06s ease, filter .12s ease, box-shadow .12s ease}
+  button:hover{transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 4px 16px rgba(0,0,0,.15)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+  .q{padding:14px;border:1px solid var(--border-soft);border-radius:12px;margin:10px 0;background:var(--bg-soft)}
+  .q > div:first-child{font-size:17px}
+  .opts{list-style:none;padding:0;margin:10px 0;display:grid;gap:10px}
+  .opt{padding:10px;border:1px solid var(--border-soft);border-radius:10px;background:var(--opt)}
+  .opt label{display:block;color:var(--ink)}
+  .opt input[type="radio"]{accent-color:var(--accent);transform:scale(1.15);margin-right:6px}
+  .opt.correct{border-color:var(--ok)}
+  .opt.wrong{border-color:var(--bad)}
+  .opt:has(input[type="radio"]:checked){border-color:var(--accent);background:rgba(31,111,235,.10)}
+
+  .muted{color:var(--muted)}
+  .stats{font-variant-numeric:tabular-nums}
+  .error{border:1px solid color-mix(in srgb, var(--error-ink) 40%, transparent);background:var(--error-bg);color:var(--error-ink);padding:10px;border-radius:10px}
+
+  code{padding:1px 4px;border-radius:5px;background:color-mix(in srgb, var(--bg-soft) 92%, var(--ink) 8%);border:1px solid var(--border-soft);color:var(--ink)}
+
+  /* user text color override (per theme) */
+  :root{ --ink-user: ; }
+  body, header .title, .muted, .stats, textarea, input, button, .q > div:first-child, .opt label, code {
+    color: var(--ink-user, var(--ink));
   }
-  button.primary{ background:var(--accent) !important; border-color:var(--accent) !important; color:var(--accent-ink) !important; }
-  button:hover{ transform:translateY(-1px); filter:brightness(1.05); box-shadow:0 4px 16px rgba(0,0,0,.15); }
-  button:active{ transform:translateY(0); filter:none; }
-  button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-
-  /* Question blocks */
-  .q{ background:var(--bg-soft) !important; border-color:var(--border-soft) !important; }
-  .q > div:first-child{ font-size:17px; }
-
-  /* Options */
-  .opts{ gap:10px !important; }
-  .opt{
-    background:var(--opt) !important; border-color:var(--border-soft) !important;
-    transition:border-color .12s ease, background .12s ease, box-shadow .12s ease, transform .06s ease;
-  }
-  /* Ensure high-contrast option text in both themes */
-  .opt label{ color: var(--ink) !important; display:block; line-height:1.55; }
-  .q > div:first-child{ color: var(--ink) !important; }
-  /* Improve wrapping for very long options */
-  .opts, .opt, .opt label{ word-break: break-word; overflow-wrap: anywhere; }
-  /* Bigger, accent-colored radios for visibility */
-  .opt input[type="radio"]{ accent-color: var(--accent); }
-  .opt:hover{ border-color:var(--accent); box-shadow:0 2px 10px rgba(0,0,0,.12); transform:translateY(-1px); }
-  .opt.correct{ border-color:var(--ok) !important; }
-  .opt.wrong{ border-color:var(--bad) !important; }
-  /* Highlight selected option row (modern browsers) */
-  .opt:has(input[type="radio"]:checked){
-    border-color:var(--accent) !important;
-    background:rgba(31,111,235,0.08) !important;
-  }
-  /* Slightly larger radios for touch */
-  .opt input[type="radio"]{ transform:scale(1.15); margin-right:6px; }
-
-  /* Status text */
-  .muted{ color:var(--muted) !important; }
-  .stats{ color:var(--ink); opacity:.9; }
-
-  /* Error box */
-  .error{ background:var(--error-bg) !important; color:var(--error-ink) !important; border-color:color-mix(in srgb, var(--error-ink) 40%, transparent) !important; }
-
-  /* Code marks */
-  code{ background:color-mix(in srgb, var(--bg-soft) 92%, var(--ink) 8%) !important; border-color:var(--border-soft) !important; color:var(--ink) !important; }
-
-  /* Header title weight */
-  header h1{ letter-spacing:.2px; }
-
-  /* Reduce layout shift on hover */
-  *{ -webkit-tap-highlight-color: transparent; }
-/* === CRISP LIGHT THEME – HIGH CONTRAST OVERRIDES ================== */
-html[data-theme="light"] body{ background:#ffffff !important; color:#101828 !important; }
-html[data-theme="light"] header{ background:#ffffff !important; border-bottom:1px solid #d0d7e2 !important; }
-html[data-theme="light"] header h1{ color:#101828 !important; }
-
-html[data-theme="light"] .card{ background:#ffffff !important; border-color:#d0d7e2 !important; box-shadow:0 8px 24px rgba(16,24,40,.08) !important; }
-html[data-theme="light"] .q{ background:#ffffff !important; border-color:#d0d7e2 !important; }
-html[data-theme="light"] .opt{ background:#fbfdff !important; border-color:#d0d7e2 !important; }
-html[data-theme="light"] .opt:hover{ border-color:#1f6feb !important; box-shadow:0 3px 14px rgba(16,24,40,.08) !important; }
-html[data-theme="light"] .opt label{ color:#101828 !important; }
-html[data-theme="light"] .q > div:first-child{ color:#101828 !important; }
-html[data-theme="light"] .opt:has(input[type="radio"]:checked){
-  background:rgba(31,111,235,.10) !important;
-  border-color:#1f6feb !important;
-}
-
-html[data-theme="light"] textarea,
-html[data-theme="light"] input[type="file"],
-html[data-theme="light"] button{
-  background:#ffffff !important;
-  color:#101828 !important;
-  border-color:#cfd5e1 !important;
-}
-
-html[data-theme="light"] .muted{ color:#667085 !important; }
-html[data-theme="light"] .error{ background:#fff5f5 !important; border-color:#f5c2c2 !important; color:#7a1111 !important; }
-html[data-theme="light"] code{ background:#f5f7fb !important; border:1px solid #e3e8f3 !important; color:#101828 !important; }
-
-
-/* Fix inline dark style on timer minutes <input id="mins"> */
-#mins{
-  background:var(--bg-soft) !important;
-  color:var(--ink) !important;
-  border-color:var(--border-soft) !important;
-}
-  /* === User text color override ===================================== */
-  :root{ --ink-user: ; } /* set via JS when the user picks a color */
-  /* Apply user color wherever we show text; falls back to --ink */
-  body,
-  header h1,
-  .muted,
-  .stats,
-  textarea,
-  input[type="file"],
-  button,
-  .q > div:first-child,
-  .opt label,
-  code {
-    color: var(--ink-user, var(--ink)) !important;
-  }
-  /* Maintain button primary contrast */
-  button.primary{ color: var(--accent-ink) !important; }
+  button.primary{ color: var(--accent-ink); }
 </style>
+
+<!-- jsPDF for export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-<header style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-  <h1>📄 Text/Markdown MCQ → ✅ Quiz → 📑 PDF</h1>
-  <div class="timerBox muted" id="timerBoxTop" style="display:flex;align-items:center;gap:6px">
-    ⏱️ <input id="mins" type="number" value="20" min="0" style="width:64px">
-    <button id="tStart">Start</button>
-    <button id="tPause">Pause</button>
-    <button id="tReset">Reset</button>
-    <b id="tDisp">20:00</b>
+
+<header>
+  <div class="row" style="justify-content:space-between">
+    <div class="brand">
+      <img src="mcq icon.png" alt="App">
+      <h1 class="title">MCQ Q-Bank</h1>
+    </div>
+    <div class="toolbar">
+      <button id="themeToggle" class="pill" title="Toggle light/dark">🌙</button>
+      <span class="muted">Text</span>
+      <input id="inkPicker" type="color" class="pill" style="width:40px;height:34px;padding:0">
+      <button id="inkReset" class="pill" title="Reset text color">↺</button>
+      <button id="installBtn" class="pill" style="display:none">📥 Install</button>
+      <div class="pill" style="display:flex;gap:6px;align-items:center">
+        ⏱️ <input id="mins" type="number" value="20" min="0" style="width:64px">
+        <button id="tStart" class="pill">Start</button>
+        <button id="tPause" class="pill">Pause</button>
+        <button id="tReset" class="pill">Reset</button>
+        <b id="tDisp">20:00</b>
+      </div>
+    </div>
   </div>
 </header>
+
 <main>
   <div class="card"><div class="inner">
     <div class="row">
       <input id="txtFile" type="file" accept=".txt,.md,.json,.csv,text/plain">
-      <button id="loadBtn">Load</button>
-      <button id="exampleBtn">Insert Example</button>
+      <button id="loadBtn">📂 Load</button>
+      <button id="exampleBtn">✨ Insert Example</button>
     </div>
+
+    <div class="row" style="margin-top:8px">
+      <input id="setTitle" type="text" placeholder="Set title (e.g., 'Unit 5 GI')">
+      <button id="saveSet">💾 Save Set</button>
+      <select id="savedList" style="min-width:240px"><option value="">Saved sets…</option></select>
+      <button id="deleteSet">🗑️ Delete</button>
+      <button id="exportSet">⬇️ Export Set</button>
+      <button id="exportAll">⬇️ Export All</button>
+
+      <!-- NEW: Importers -->
+      <button id="importSet">⬆️ Import Set</button>
+      <input id="importSetFile" type="file" accept=".md,.txt,text/markdown,text/plain" style="display:none">
+      <button id="importBank">⬆️ Import Bank</button>
+      <input id="importBankFile" type="file" accept=".json,application/json" style="display:none">
+    </div>
+
     <p class="muted" style="margin:8px 0 6px">
-      Paste MCQs (supports <b>bold</b>/<i>italics</i>, headers like “## …”, options like “- A) …/A.”, and <code>Answer:</code> / <code>Explanation:</code>).
+      Paste MCQs (supports <b>bold</b>/<i>italics</i>, headers like “## …”, options like “- A) … / A.”, and <code>Answer:</code> / <code>Explanation:</code>).
     </p>
-    <textarea id="raw"></textarea>
+    <textarea id="raw" placeholder="Paste or load your MCQs here…"></textarea>
+
     <div class="row" style="margin-top:10px">
-      <button id="cleanBtn">Clean text</button>
-      <button id="parseBtn" class="primary">Parse → Start Quiz</button>
+      <button id="cleanBtn">🧽 Clean text</button>
+      <button id="parseBtn" class="primary">▶️ Parse → Start Quiz</button>
       <span id="parseMsg" class="muted"></span>
     </div>
     <div id="errBox" style="display:none;margin-top:10px" class="error"></div>
@@ -237,20 +146,20 @@ html[data-theme="light"] code{ background:#f5f7fb !important; border:1px solid #
 
   <div class="card"><div class="inner">
     <div class="row">
-      <button id="finishBtn" class="primary" disabled>Finish & Score</button>
-      <button id="pdfBtn" disabled>Export Results as PDF</button>
+      <button id="finishBtn" class="primary" disabled>✅ Finish & Score</button>
+      <button id="pdfBtn" disabled>📑 Export PDF</button>
       <span id="score" class="stats"></span>
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="shuffleQ">Shuffle Questions 🔀</button>
-      <button id="shuffleO">Shuffle Options 🔁</button>
-      <button id="hardReset">Hard Reset</button>
+      <button id="shuffleQ">🔀 Shuffle Questions</button>
+      <button id="shuffleO">🔁 Shuffle Options</button>
+      <button id="hardReset">♻️ Hard Reset</button>
     </div>
   </div></div>
 </main>
 
 <script>
-/* ---------------- State & DOM ---------------- */
+/* =================== State & DOM =================== */
 const rawEl = document.getElementById('raw');
 const txtFile = document.getElementById('txtFile');
 const loadBtn = document.getElementById('loadBtn');
@@ -265,71 +174,194 @@ const finishBtn = document.getElementById('finishBtn');
 const pdfBtn = document.getElementById('pdfBtn');
 const scoreEl = document.getElementById('score');
 
+const setTitle = document.getElementById('setTitle');
+const saveSetBtn = document.getElementById('saveSet');
+const savedList = document.getElementById('savedList');
+const deleteSetBtn = document.getElementById('deleteSet');
+const exportSetBtn = document.getElementById('exportSet');
+const exportAllBtn = document.getElementById('exportAll');
+
+// Importers
+const importSetBtn  = document.getElementById('importSet');
+const importSetFile = document.getElementById('importSetFile');
+const importBankBtn = document.getElementById('importBank');
+const importBankFile= document.getElementById('importBankFile');
+
 let QUIZ = [];
 let ANSWERS = {};
 let FINISHED = false;
 
-/* ---------------- Utilities ---------------- */
-const A = (i)=>String.fromCharCode(65+i);
+/* =================== Saved Sets (localStorage) =================== */
+const LS_SETS_KEY = 'mcq-sets-v1';   // map: { title: rawText }
+const LS_LAST_KEY = 'mcq-last';      // last raw text autosave
 
+function getSets(){
+  try { return JSON.parse(localStorage.getItem(LS_SETS_KEY)||'{}') || {}; }
+  catch { return {}; }
+}
+function putSets(sets){ localStorage.setItem(LS_SETS_KEY, JSON.stringify(sets)); }
+function refreshSavedList(){
+  const sets = getSets();
+  const titles = Object.keys(sets).sort((a,b)=>a.localeCompare(b));
+  const current = savedList.value;
+  savedList.innerHTML = '<option value="">Saved sets…</option>' +
+    titles.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+  if (current && titles.includes(current)) savedList.value = current;
+}
+
+// Auto-save textarea (debounced)
+let __saveTimer = null;
+rawEl.addEventListener('input', ()=>{
+  clearTimeout(__saveTimer);
+  __saveTimer = setTimeout(()=>{
+    try { localStorage.setItem(LS_LAST_KEY, rawEl.value||''); } catch {}
+  }, 300);
+});
+// Restore last session text on load
+(function(){
+  try {
+    const last = localStorage.getItem(LS_LAST_KEY);
+    if (last && !rawEl.value) rawEl.value = last;
+  } catch {}
+})();
+
+/* Save / Load / Delete / Export */
+saveSetBtn.onclick = ()=>{
+  const title = (setTitle?.value || '').trim();
+  const text = (rawEl?.value || '').trim();
+  if (!text){ alert('Nothing to save. Paste or load MCQs first.'); return; }
+  if (!title){ alert('Give this set a title first.'); return; }
+  const sets = getSets();
+  if (sets[title] && !confirm(`Replace existing set "${title}"?`)) return;
+  sets[title] = text; putSets(sets); refreshSavedList();
+  savedList.value = title; parseMsg.textContent = `Saved set: ${title}`;
+};
+savedList.onchange = ()=>{
+  const t = savedList.value; if (!t) return;
+  const sets = getSets();
+  if (sets[t]){ rawEl.value = sets[t]; setTitle.value = t; parseMsg.textContent = `Loaded set: ${t}`; }
+};
+deleteSetBtn.onclick = ()=>{
+  const t = savedList?.value || setTitle?.value || '';
+  if (!t){ alert('Select a saved set to delete.'); return; }
+  const sets = getSets();
+  if (!sets[t]){ alert('No such saved set.'); return; }
+  if (!confirm(`Delete saved set "${t}"?`)) return;
+  delete sets[t]; putSets(sets); refreshSavedList(); savedList.value = '';
+  parseMsg.textContent = 'Deleted.';
+};
+function downloadText(filename, text){
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function exportSetByTitle(title){
+  const sets = getSets(); const text = sets[title];
+  if (!text){ alert('Select a saved set first.'); return; }
+  downloadText(`${title}.md`, text);
+}
+exportSetBtn.onclick = ()=>{ const t = savedList?.value || setTitle?.value; if(!t){alert('Pick a set first');return;} exportSetByTitle(t); };
+exportAllBtn.onclick = ()=>{
+  const sets = getSets(); const json = JSON.stringify(sets, null, 2);
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+  downloadText(`mcq_bank_${stamp}.json`, json);
+};
+
+// Importers
+function inferTitleFrom(name, text) {
+  let base = String(name || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
+  if (base) return base.slice(0, 60);
+  const first = String(text || '').split(/\r?\n/).find(l => l.trim().length > 3);
+  return (first ? first.trim().slice(0, 60) : 'Imported Set');
+}
+importSetBtn.onclick = ()=> importSetFile.click();
+importSetFile.onchange = async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  const text = await f.text();
+  let title = prompt('Title for this set?', inferTitleFrom(f.name, text));
+  if (!title) return;
+  const sets = getSets();
+  if (sets[title] && !confirm(`Replace existing set "${title}"?`)) return;
+  sets[title] = text; putSets(sets); refreshSavedList();
+  savedList.value = title; setTitle.value = title; rawEl.value = text;
+  parseMsg.textContent = `Imported set: ${title}`;
+  document.getElementById('parseBtn')?.click();
+  e.target.value = '';
+};
+importBankBtn.onclick = ()=> importBankFile.click();
+importBankFile.onchange = async (e)=>{
+  const f = e.target.files?.[0]; if(!f) return;
+  try{
+    const json = JSON.parse(await f.text());
+    if (!json || typeof json !== 'object') throw new Error('Not a JSON object');
+    const sets = getSets(); const titles = Object.keys(json);
+    if (!titles.length){ alert('No sets found in this file.'); e.target.value=''; return; }
+    const overwrite = confirm('Import bank:\nOK = overwrite existing titles\nCancel = only add new ones');
+    let added=0,updated=0,skipped=0;
+    for(const t of titles){
+      const val = json[t]; if(typeof val!=='string'){skipped++;continue;}
+      if(sets[t]){ if(overwrite){sets[t]=val;updated++;} else skipped++; }
+      else { sets[t]=val; added++; }
+    }
+    putSets(sets); refreshSavedList();
+    parseMsg.textContent = `Bank import → added ${added}, updated ${updated}, skipped ${skipped}.`;
+    const first = titles.find(t=>sets[t]); if(first){ savedList.value=first; setTitle.value=first; rawEl.value=sets[first]; }
+  }catch(err){ alert('Import failed: '+(err?.message||err)); }
+  e.target.value='';
+};
+refreshSavedList();
+
+/* =================== Utilities =================== */
+const A = (i)=>String.fromCharCode(65+i);
 function escapeHtml(s){return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function mdInline(s){
   s = escapeHtml(String(s||''));
   s = s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');                    // **bold**
-  s = s.replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1<i>$2</i>'); // *italics*
-  s = s.replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1<i>$2</i>');    // _italics_
+  s = s.replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1<i>$2</i>'); // *it*
+  s = s.replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1<i>$2</i>');    // _it_
   s = s.replace(/`([^`]+)`/g,'<code>$1</code>');                  // `code`
   return s;
 }
 function mdToPlain(s){
   s = String(s||'');
-  s = s.replace(/\*\*(.+?)\*\*/g,'$1').replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1$2').replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1$2').replace(/`([^`]+)`/g,'$1');
+  s = s.replace(/\*\*(.+?)\*\*/g,'$1')
+       .replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1$2')
+       .replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1$2')
+       .replace(/`([^`]+)`/g,'$1');
   return s;
 }
 
-/* ---------------- Normalization ---------------- */
+/* =================== Normalization =================== */
 function normalizeAll(t){
   if(!t) return '';
   const ZW = /[\u200B-\u200D\u2060]/g;
   t = String(t).replace(/\uFEFF/g,'').replace(ZW,'').replace(/\r\n?/g,'\n').replace(/\u00A0/g,' ');
-  t = t.replace(/[“”]/g,'"').replace(/[‘’]/g,"'");
-  t = t.replace(/[–—]/g,'-');
-  // turn bullets into "- "
-  t = t.replace(/^[\s]*[•∙◦·]+\s?/gm,'- ');
-  // drop HRs like *** --- ___
-  t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm,'');
-  // canonicalize options -> "- A) "
-  t = t.replace(/^\s*(?:-|\*)?\s*(?:\*\*)?\s*\(?\s*([A-Da-d])\s*\)?\s*[\.\):\-]\s+(?=\S)/gm,(_,L)=>`- ${L.toUpperCase()}) `);
-  // headings “## …” are ignored
-  t = t.split('\n').filter(line=>!/^\s*#{1,6}\s+/.test(line)).join('\n');
-  // normalize labels Answer/Explanation (allow bold wrappers)
+  t = t.replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-');
+  t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm,'');             // horizontal rules
+  t = t.replace(/^[\s]*[•∙◦·]+\s?/gm,'- ');                       // bullets → "- "
+  t = t.replace(/^\s*(?:-|\*)?\s*(?:\*\*)?\s*\(?\s*([A-Da-d])\s*\)?\s*[\.\):\-]\s+(?=\S)/gm,(_,L)=>`- ${L.toUpperCase()}) `); // options
+  t = t.split('\n').filter(line=>!/^\s*#{1,6}\s+/.test(line)).join('\n'); // drop markdown headings
   t = t.replace(/^\s*(?:\*\*)?\s*(ans|answer|correct)\s*[:=\-]\s*(.+)$/gmi,(_, __, rest)=>`Answer: ${rest.trim()}`);
-  // Accepts noise between "answer" and the colon, e.g., "Answer wer: B"
-t = t.replace(/^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.+)$/gmi,
-              (_m, rest)=>`Answer: ${rest.trim()}`);
-  // unwrap bolded question tokens: **15)**, **Q:)**
+  t = t.replace(/^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.+)$/gmi,(_m,rest)=>`Answer: ${rest.trim()}`);
   t = t.replace(/^\s*\*\*\s*(\d+\s*[\.\)])\s*(.*?)\s*\*\*\s*$/gm,(_m,num,rest)=>`${num} ${rest}`);
   t = t.replace(/^\s*\*\*\s*(Q\s*[:\.\)])\s*(.*?)\s*\*\*\s*$/gmi,(_m,q,rest)=>`${q} ${rest}`);
-  // squeeze blanks
   t = t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   return t;
 }
 
-/* ---------------- Split & Parse ---------------- */
+/* =================== Split & Parse =================== */
 const RX = {
   optStart: /^\s*(?:[-–—•]\s*)?(?:\*\*)?\s*([A-D])\s*[\)\.]\s+/i,
-  // Match "Answer:" with possible junk before the colon
-ansLine: /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*:/i,
-  expLine: /^\s*(?:\*\*)?\s*explanation\s*:/i,
-  qStart : /^\s*(?:\*\*)?\s*(?:\d+\s*[\.\)]|q\s*[:\.\)])\s+/i
+  ansLine:  /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*:/i,
+  expLine:  /^\s*(?:\*\*)?\s*explanation\s*:/i,
+  qStart:   /^\s*(?:\*\*)?\s*(?:\d+\s*[\.\)]|q\s*[:\.\)])\s+/i
 };
-
 function splitIntoBlocks(t){
-  const lines = t.split('\n');
-  const blocks = [];
-  let cur = [];
+  const lines = t.split('\n'); const blocks = []; let cur = [];
   const push=()=>{ if(cur.length){ blocks.push(cur.join('\n')); cur=[]; } };
-
   for(const L of lines){
     const s = L.trim();
     if(!s){ push(); continue; }
@@ -338,10 +370,8 @@ function splitIntoBlocks(t){
     if(isQ && cur.length && curHasMCQ){ push(); }
     cur.push(L);
   }
-  push();
-  return blocks;
+  push(); return blocks;
 }
-
 function normalizeBlockLines(block){
   const raw = block.split('\n').filter(Boolean);
   const out=[]; let phase='q';
@@ -363,88 +393,49 @@ function normalizeBlockLines(block){
 }
 const optionTextFrom = l => l.replace(RX.optStart,'').trim();
 const payloadAfterColon = l => l.split(/:/).slice(1).join(':').trim();
-
-function resolveCorrectIndex(options, rawPayload){
-  if(!options?.length) return -1;
-  let p = String(rawPayload||'').trim();
-  // strip leading "B) " / "B. "
-  p = p.replace(/^[A-Da-d]\s*[\)\.\-]\s*/, '').trim();
-  // letter
-  if(/^[A-Da-d]$/.test(p)){
-    const idx = p.toUpperCase().charCodeAt(0)-65;
-    return (idx>=0 && idx<options.length) ? idx : -1;
-  }
-  const norm = s=>String(s||'').replace(/\s+/g,' ').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').trim().toLowerCase();
-  const want = norm(p);
-  let best=-1,score=0;
-  options.forEach((o,i)=>{
-    const n=norm(o);
-    if(n===want){ best=i; score=1e9; return; }
-    if(n.includes(want)||want.includes(n)){ const sc=Math.min(n.length,want.length); if(sc>score){best=i;score=sc;} }
-  });
-  return best;
-}
-// Keep the intended A–D answer even if OCR added junk like "wer:", "**", "[1]" etc.
 function cleanAnswerPayload(p){
-  if (!p) return '';
-  let s = String(p).trim();
-
-  // remove simple markdown markers and code ticks
-  s = s.replace(/\*\*/g,'').replace(/__/g,'').replace(/`/g,'');
-
-  // drop trailing citations/notes like [1], (ref), {note}
-  s = s.replace(/[\(\[\{][^\)\]\}]*[\)\]\}]\s*$/g, '');
-
-  // 1) "B) ..." or "B. ..." → take the leading letter
-  let m = s.match(/^[A-Da-d]\s*[\)\.\-]/);
-  if (m) return m[0].trim()[0].toUpperCase();
-
-  // 2) last A–D near the end (handles "wer: wer: B**[1]")
-  m = s.match(/([A-Da-d])(?:\s*[\*\)\]]*)\s*$/);
-  if (m) return m[1].toUpperCase();
-
-  // 3) any isolated A–D token
-  m = s.match(/\b([A-Da-d])\b/);
-  if (m) return m[1].toUpperCase();
-
-  // fallback: return original (will trigger normal resolver behavior)
+  if (!p) return ''; let s = String(p).trim();
+  s = s.replace(/\*\*/g,'').replace(/__/g,'').replace(/`/g,'');           // md
+  s = s.replace(/[$begin:math:text$\\[\\{][^$end:math:text$\]\}]*[\)\]\}]\s*$/g, '');                   // trailing [1], (ref)
+  let m = s.match(/^[A-Da-d]\s*[\)\.\-]/); if (m) return m[0].trim()[0].toUpperCase();
+  m = s.match(/([A-Da-d])(?:\s*[\*\)\]]*)\s*$/); if (m) return m[1].toUpperCase();
+  m = s.match(/\b([A-Da-d])\b/); if (m) return m[1].toUpperCase();
   return s;
 }
+function resolveCorrectIndex(options, rawPayload){
+  if(!options?.length) return -1;
+  let p = String(rawPayload||'').trim().replace(/^[A-Da-d]\s*[\)\.\-]\s*/,'');
+  if(/^[A-Da-d]$/.test(p)){ const idx=p.toUpperCase().charCodeAt(0)-65; return (idx>=0&&idx<options.length)?idx:-1; }
+  const norm = s=>String(s||'').replace(/\s+/g,' ').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').trim().toLowerCase();
+  const want = norm(p); let best=-1,score=0;
+  options.forEach((o,i)=>{ const n=norm(o); if(n===want){best=i;score=1e9;return;} if(n.includes(want)||want.includes(n)){ const sc=Math.min(n.length,want.length); if(sc>score){best=i;score=sc;} }});
+  return best;
+}
 function parseMCQ(text){
-  const items=[]; const errors=[];
-  const blocks = splitIntoBlocks(normalizeAll(text));
-
+  const items=[]; const errors=[]; const blocks = splitIntoBlocks(normalizeAll(text));
   blocks.forEach((b,bi)=>{
-    const lines = normalizeBlockLines(b);
-    if(!lines.length) return;
+    const lines = normalizeBlockLines(b); if(!lines.length) return;
     const qIndex = lines.findIndex(s => !(RX.optStart.test(s)||RX.ansLine.test(s)||RX.expLine.test(s)));
     if(qIndex===-1){ errors.push(`Block ${bi+1}: no question line`); return; }
     const stem = lines[qIndex].replace(RX.qStart,'').replace(/^\*\*(.+?)\*\*$/,'$1').trim();
-
     const optLines = lines.filter(s=>RX.optStart.test(s));
     if(optLines.length<2){ errors.push(`Block ${bi+1}: need ≥2 options`); return; }
     const options = optLines.map(optionTextFrom);
-
-    const aLine = lines.find(s=>RX.ansLine.test(s));
-    if(!aLine){ errors.push(`Block ${bi+1}: missing Answer:`); return; }
-
-    let payload = payloadAfterColon(aLine);
-    let explanation='';
+    const aLine = lines.find(s=>RX.ansLine.test(s)); if(!aLine){ errors.push(`Block ${bi+1}: missing Answer:`); return; }
+    let payload = payloadAfterColon(aLine); let explanation='';
     const inline = payload.split(/(?=Explanation\s*:)/i);
     if(inline.length>1){ payload = inline[0].trim(); explanation = inline.slice(1).join('').replace(/^Explanation\s*:/i,'').trim(); }
     if(!explanation){ const eLine = lines.find(s=>RX.expLine.test(s)); if(eLine) explanation = payloadAfterColon(eLine); }
     payload = cleanAnswerPayload(payload);
     const correctIndex = resolveCorrectIndex(options,payload);
     if(correctIndex===-1){ errors.push(`Block ${bi+1}: cannot resolve answer "${payload}"`); return; }
-
     items.push({ id:'q'+(items.length+1), stem, options, correctIndex, explanation });
   });
-
   return { items, errors, blocksCount: blocks.length };
 }
 window.parseMCQ = parseMCQ;
-window.renderQuiz = renderQuiz;
-/* ---------------- UI ---------------- */
+
+/* =================== UI =================== */
 function renderQuiz(){
   quizEl.innerHTML = QUIZ.map((q,idx)=>`
     <div class="q" data-i="${idx}">
@@ -454,10 +445,7 @@ function renderQuiz(){
           const selected = ANSWERS[idx]===i ? 'checked' : '';
           const disable = FINISHED ? 'disabled' : '';
           let cls='opt';
-          if(FINISHED){
-            if(i===q.correctIndex) cls+=' correct';
-            else if(ANSWERS[idx]===i) cls+=' wrong';
-          }
+          if(FINISHED){ if(i===q.correctIndex) cls+=' correct'; else if(ANSWERS[idx]===i) cls+=' wrong'; }
           return `<li class="${cls}">
             <label><input type="radio" name="q${idx}" value="${i}" ${selected} ${disable}> ${A(i)}) ${mdInline(opt)}</label>
           </li>`;
@@ -477,92 +465,54 @@ function renderQuiz(){
   });
   updateScorePreview();
 }
-
 function updateScorePreview(){
   if(!QUIZ.length){ scoreEl.textContent = ''; return; }
   let c=0,w=0,s=0;
-  QUIZ.forEach((q,i)=>{
-    const a = ANSWERS[i];
-    if(a==null){ s++; }
-    else if(a===q.correctIndex){ c++; } else { w++; }
-  });
+  QUIZ.forEach((q,i)=>{ const a = ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
   scoreEl.textContent = `Answered: ${QUIZ.length - s}/${QUIZ.length} • Correct: ${c} • Wrong: ${w}`;
 }
-
-function finishAndScore(){
-  FINISHED = true;
-  renderQuiz();
-  finishBtn.disabled = true;
-  pdfBtn.disabled = false;
-}
-
+function finishAndScore(){ FINISHED = true; renderQuiz(); finishBtn.disabled = true; pdfBtn.disabled = false; }
 function exportPdf(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-  const margin = 40;
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  const drawHeader = () => {
-    doc.setFontSize(14);
-    doc.text('MCQ Results', margin, 40);
-    doc.setFontSize(10);
-    doc.text('Generated: ' + new Date().toLocaleString(), margin, 58);
-  };
-  drawHeader();
-
-  const rows = QUIZ.map((q, i) => {
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const margin = 40; const pageWidth = doc.internal.pageSize.getWidth();
+  const head = () => { doc.setFontSize(14); doc.text('MCQ Results', margin, 40); doc.setFontSize(10); doc.text('Generated: ' + new Date().toLocaleString(), margin, 58); };
+  head();
+  const rows = QUIZ.map((q,i)=>{
     const yourIdx = ANSWERS[i];
     const your = (yourIdx != null) ? `${A(yourIdx)}) ${mdToPlain(q.options[yourIdx])}` : '—';
     const corr = `${A(q.correctIndex)}) ${mdToPlain(q.options[q.correctIndex])}`;
     const res  = (yourIdx == null) ? '—' : (yourIdx === q.correctIndex ? 'Correct' : 'Wrong');
     const optionsText = q.options.map((o,k)=>`${A(k)}) ${mdToPlain(o)}`).join('\n');
-
     const block =
 `${i+1}. ${mdToPlain(q.stem)}
 ${optionsText}
 Your: ${your}
 Correct: ${corr}
 Result: ${res}${q.explanation ? `\nExplanation: ${mdToPlain(q.explanation)}` : ''}`;
-
     return [block];
   });
-
   doc.autoTable({
-    startY: 80,
-    head: [['Questions, answers & explanations']],
-    body: rows,
-    theme: 'grid',
+    startY: 80, head: [['Questions, answers & explanations']], body: rows, theme: 'grid',
     styles: { fontSize: 10, cellPadding: 6, overflow: 'linebreak' },
     headStyles: { fillColor: [31,111,235], textColor: 255, halign: 'left' },
     margin: { left: margin, right: margin },
     columnStyles: { 0: { cellWidth: pageWidth - margin * 2 } },
-    didDrawPage: () => drawHeader()
+    didDrawPage: () => head()
   });
-
-  let c=0,w=0,s=0;
-  QUIZ.forEach((q,i)=>{ const a=ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
+  let c=0,w=0,s=0; QUIZ.forEach((q,i)=>{ const a=ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
   const y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 24;
-  doc.setFontSize(12);
-  doc.text(`Summary: Correct ${c} / ${QUIZ.length} • Wrong ${w} • Skipped ${s}`, margin, y);
-
+  doc.setFontSize(12); doc.text(`Summary: Correct ${c} / ${QUIZ.length} • Wrong ${w} • Skipped ${s}`, margin, y);
   doc.save('mcq-results.pdf');
 }
 
-/* ---------------- Wire up (single source of truth) ---------------- */
+/* =================== Wire up =================== */
 loadBtn.onclick = async ()=>{
-  const f = txtFile.files?.[0];
-  if(!f){ alert('Choose a file first'); return; }
+  const f = txtFile.files?.[0]; if(!f){ alert('Choose a file first'); return; }
   let t = await f.text();
-  // quick converts
-  if(f.name.endsWith('.json')){
-    try{ const obj=JSON.parse(t); if(Array.isArray(obj)) t=obj.join('\n'); else if(obj && typeof obj==='object') t=Object.values(obj).join('\n'); }catch{}
-  }
+  if(f.name.endsWith('.json')){ try{ const obj=JSON.parse(t); if(Array.isArray(obj)) t=obj.join('\n'); else if(obj && typeof obj==='object') t=Object.values(obj).join('\n'); }catch{} }
   if(f.name.endsWith('.csv')){ t = t.replace(/\r\n?/g,'\n'); }
-  rawEl.value = t;
-  parseMsg.textContent = `Loaded ${f.name} (${(f.size/1024).toFixed(0)} KB)`;
+  rawEl.value = t; parseMsg.textContent = `Loaded ${f.name} (${(f.size/1024).toFixed(0)} KB)`;
 };
-
 exampleBtn.onclick = ()=>{
   rawEl.value = `**1)** Which hormone is primarily secreted by lactotropes in the anterior pituitary?
 - A) Growth Hormone
@@ -581,877 +531,90 @@ Answer: B
 Explanation: Fatigue and weight loss may occur; pancreatic insufficiency can contribute.`;
   parseMsg.textContent = 'Example inserted';
 };
-
-cleanBtn.onclick = ()=>{
-  rawEl.value = normalizeAll(rawEl.value);
-  parseMsg.textContent = 'Cleaned punctuation, bullets & Markdown';
-  errBox.style.display = 'none'; errBox.textContent = '';
-};
-
+cleanBtn.onclick = ()=>{ rawEl.value = normalizeAll(rawEl.value); parseMsg.textContent = 'Cleaned punctuation, bullets & Markdown'; errBox.style.display = 'none'; errBox.textContent = ''; };
 parseBtn.onclick = (e)=>{
-  e.preventDefault();
-  FINISHED = false; ANSWERS = {}; try{ localStorage.removeItem('mcq-answers'); }catch{}
+  e.preventDefault(); FINISHED = false; ANSWERS = {}; try{ localStorage.removeItem('mcq-answers'); }catch{}
   errBox.style.display='none'; errBox.textContent='';
-
-  const txt = normalizeAll(rawEl.value || '');
-  if(!txt){ alert('Paste your MCQs or load a file first'); return; }
-
+  const txt = normalizeAll(rawEl.value || ''); if(!txt){ alert('Paste your MCQs or load a file first'); return; }
   const { items, errors, blocksCount } = parseMCQ(txt);
-
-  // keep what worked
   QUIZ = items; window.QUIZ = items;
-
-  // show errors, but still render quiz if we have items
-  if(errors.length){
-    errBox.style.display='block';
-    errBox.innerHTML = '<b>Parsing issues:</b><br>' + errors.map(e=>'• '+e).join('<br>');
-  }
+  if(errors.length){ errBox.style.display='block'; errBox.innerHTML = '<b>Parsing issues:</b><br>' + errors.map(e=>'• '+e).join('<br>'); }
   parseMsg.textContent = `Parsed ${items.length} question(s) from ${blocksCount} block(s).`;
-
-  if(!QUIZ.length){
-    quizCard.style.display='none'; finishBtn.disabled=true; pdfBtn.disabled=true; scoreEl.textContent='';
-    return;
-  }
-  quizCard.style.display=''; finishBtn.disabled=false; pdfBtn.disabled=true;
-  renderQuiz();
+  if(!QUIZ.length){ quizCard.style.display='none'; finishBtn.disabled=true; pdfBtn.disabled=true; scoreEl.textContent=''; return; }
+  quizCard.style.display=''; finishBtn.disabled=false; pdfBtn.disabled=true; renderQuiz();
   // Auto-time per question: 1 minute each, minimum 1 minute
-  const perQ = Math.max(1, QUIZ.length);
-  if (mins) mins.value = perQ;
-  window.__timerResetSafe?.();
-  window.__timerStartSafe?.(perQ);
+  const perQ = Math.max(1, QUIZ.length); mins.value = perQ; __resetTimer(); __startTimer(perQ);
 };
 finishBtn.onclick = finishAndScore;
 pdfBtn.onclick = exportPdf;
 
-try { ANSWERS = JSON.parse(localStorage.getItem('mcq-answers')||'{}') || {}; } catch {}
-
-/* ---------------- Shuffle buttons ---------------- */
 function fyShuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 document.getElementById('shuffleQ').onclick = ()=>{ if(!QUIZ.length) return alert('Parse first'); fyShuffle(QUIZ); ANSWERS={}; renderQuiz(); };
 document.getElementById('shuffleO').onclick = ()=>{ if(!QUIZ.length) return alert('Parse first'); QUIZ.forEach(q=>{ const order=q.options.map((_,i)=>i); fyShuffle(order); q.options=order.map(i=>q.options[i]); q.correctIndex=order.indexOf(q.correctIndex); }); ANSWERS={}; renderQuiz(); };
 document.getElementById('hardReset').onclick = ()=>{ try{localStorage.removeItem('mcq-answers');}catch{} QUIZ=[]; ANSWERS={}; FINISHED=false; quizCard.style.display='none'; finishBtn.disabled=true; pdfBtn.disabled=true; scoreEl.textContent=''; errBox.style.display='none'; errBox.textContent=''; parseMsg.textContent=''; };
 
-/* ---------------- Simple countdown (auto-start capable) ---------------- */
+/* =================== Timer =================== */
 const mins = document.getElementById('mins');
 const tDisp = document.getElementById('tDisp');
-let deadline = 0;
-let tick = null;
-
-const fmt = s => {
-  const m = Math.floor(s/60);
-  const n = Math.max(0, Math.floor(s%60));
-  return `${String(m).padStart(2,'0')}:${String(n).padStart(2,'0')}`;
-};
-function secsLeft(){ return Math.max(0, Math.ceil((deadline - Date.now())/1000)); }
-
+let deadline = 0, tick = null;
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.max(0,Math.floor(s%60))).padStart(2,'0')}`;
+const secsLeft = ()=> Math.max(0, Math.ceil((deadline - Date.now())/1000));
 function __startTimer(m){
   const minutes = Math.max(0, Number.isFinite(+m) ? +m : 0);
   if (!deadline || secsLeft() === 0) deadline = Date.now() + minutes * 60 * 1000;
   tDisp.textContent = fmt(minutes*60);
   if (tick) clearInterval(tick);
   tick = setInterval(() => {
-    const left = secsLeft();
-    tDisp.textContent = fmt(left);
-    if (left <= 0) {
-      clearInterval(tick); tick = null;
-      try { finishAndScore(); } catch {}
-    }
+    const left = secsLeft(); tDisp.textContent = fmt(left);
+    if (left <= 0) { clearInterval(tick); tick = null; try { finishAndScore(); } catch {} }
   }, 250);
 }
 function __pauseTimer(){ if (tick) clearInterval(tick); tick = null; }
-function __resetTimer(){
-  __pauseTimer();
-  deadline = 0;
-  const base = Math.max(0, parseFloat(mins.value || 20));
-  tDisp.textContent = fmt(base*60);
-}
-
-// Expose safe helpers for other code (parse hook uses these)
-window.__timerStartSafe = __startTimer;
-window.__timerPauseSafe = __pauseTimer;
-window.__timerResetSafe = __resetTimer;
-
-// Hook up buttons
+function __resetTimer(){ __pauseTimer(); deadline = 0; tDisp.textContent = fmt((parseFloat(mins.value||20))*60); }
 document.getElementById('tStart').onclick = () => __startTimer(parseFloat(mins.value || 20));
 document.getElementById('tPause').onclick = __pauseTimer;
 document.getElementById('tReset').onclick = __resetTimer;
-
-// Initial paint
 tDisp.textContent = fmt((parseFloat(mins.value||20))*60);
-</script>
-<!-- === END ADD-ON: Safe Parse + Scrub + Hard Reset (drop-in) === -->
-<script>
-(function () {
-  const ZW = /[\u200B-\u200D\u2060]/g;    // zero-width set
-  let parseBusy = false;
 
-  // helpers exposed (optional use elsewhere)
-  window.__scrub = s => String(s||'').replace(ZW,'').replace(/\uFEFF/g,'');
-  window.hardReset = function () {
-    try { localStorage.removeItem('mcq-answers'); } catch {}
-    window.QUIZ = []; window.ANSWERS = {}; window.FINISHED = false;
-    const eb = document.getElementById('errBox'); if (eb){ eb.style.display='none'; eb.textContent=''; }
-    const sc = document.getElementById('score');  if (sc){ sc.textContent=''; }
-    const pm = document.getElementById('parseMsg'); if (pm){ pm.textContent=''; }
-    const qc = document.getElementById('quizCard'); if (qc){ qc.style.display='none'; }
-    const fb = document.getElementById('finishBtn'); if (fb){ fb.disabled = true; }
-    const pb = document.getElementById('pdfBtn');    if (pb){ pb.disabled = true; }
-    // reset timer if your timer add-on published helpers
-    window.__timerPauseSafe?.(); window.__timerResetSafe?.();
-  };
-
-  // scrub on paste into the main textarea
-  (function hookPaste() {
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (!ta || ta.__scrubHook) return;
-    ta.__scrubHook = true;
-    ta.addEventListener('paste', () => {
-      setTimeout(() => {
-        ta.value = (typeof window.normalizeAll === 'function')
-          ? normalizeAll(__scrub(ta.value))
-          : __scrub(ta.value).trim();
-      }, 0);
-    });
-  })();
-
-  // one safe parse handler that you can re-use
-  async function startParse(e){
-    e?.preventDefault?.();
-    if (parseBusy) return;
-    parseBusy = true;
-    setTimeout(()=>parseBusy=false, 150); // small debounce
-
-    try {
-      const rawEl = document.getElementById('raw') || document.querySelector('textarea');
-      const errBox = document.getElementById('errBox');
-      const parseMsg = document.getElementById('parseMsg');
-      const quizCard = document.getElementById('quizCard');
-      const finishBtn = document.getElementById('finishBtn');
-      const pdfBtn = document.getElementById('pdfBtn');
-
-      // fresh state
-      window.FINISHED = false; window.ANSWERS = {};
-      try { localStorage.removeItem('mcq-answers'); } catch {}
-      if (errBox){ errBox.style.display='none'; errBox.textContent=''; }
-      window.__timerResetSafe?.(); // no-op if you don't have the timer add-on
-
-      // normalize input
-      const raw = __scrub(rawEl?.value || '');
-      const txt = (typeof window.normalizeAll === 'function') ? normalizeAll(raw) : raw.trim();
-      if (!txt) { alert('Paste your MCQs or load a file first'); return; }
-
-      // parse (uses your existing parseMCQ)
-      if (typeof window.parseMCQ !== 'function') { alert('Parser missing (parseMCQ)'); return; }
-      const { items, errors, blocksCount } = parseMCQ(txt);
-
-      // keep what succeeded; still show errors
-      window.QUIZ = items;
-      if (errors?.length) {
-        if (errBox){
-          errBox.style.display='block';
-          errBox.innerHTML = '<b>Parsing issues:</b><br>' + errors.map(e=>'• '+e).join('<br>');
-        } else {
-          console.warn('Parsing issues:', errors);
-        }
-      } else if (errBox){
-        errBox.style.display='none'; errBox.textContent='';
-      }
-
-      if (parseMsg) parseMsg.textContent =
-        `Parsed ${items.length} question(s) from ${blocksCount} block(s).`;
-
-      // render or disable UI
-      if (!items.length){
-        if (quizCard) quizCard.style.display='none';
-        if (finishBtn) finishBtn.disabled = true;
-        if (pdfBtn) pdfBtn.disabled = true;
-        const sc = document.getElementById('score'); if (sc) sc.textContent = '';
-        return;
-      }
-
-      if (quizCard) quizCard.style.display='';
-      if (finishBtn) finishBtn.disabled = false;
-      if (pdfBtn) pdfBtn.disabled = true;
-
-      if (typeof window.renderQuiz === 'function') renderQuiz();
-    } catch (err) {
-      console.error('Parse failed:', err);
-      alert('Parse failed: ' + (err?.message || err));
-    }
-  }
-
-  // bind safely (once)
-  (function bindOnce(){
-    const btn = document.getElementById('parseBtn')
-            || document.querySelector('[id*="parse"]')
-            || Array.from(document.querySelectorAll('button')).find(b =>
-                 /parse\s*→?.*start\s*quiz|^parse\b/i.test((b.textContent||'').toLowerCase()));
-    if (!btn || btn.__safeBound) return;
-    btn.__safeBound = true;
-    btn.addEventListener('click', startParse);
-  })();
-
-})();
-</script>
-<!-- === /END ADD-ON === -->
-<script>
-/* === AUTO-CORRECT ADD-ON (paste once) ============================== */
-/* It wraps your existing normalizeAll (if present), and also hooks
-   paste, Load, and Parse so your text is “fixed” automatically.     */
-(function () {
-  const ZW = /[\u200B-\u200D\u2060]/g; // zero-width set
-
-  // Stronger pass that handles markdown + OCR quirks
-  function strongNormalize(t) {
-    if (!t) return '';
-    t = String(t)
-      .replace(/\uFEFF/g,'')
-      .replace(ZW,'')
-      .replace(/\r\n?/g,'\n')
-      .replace(/\u00A0/g,' ')
-      .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
-      .replace(/[–—]/g,'-');
-
-    // drop horizontal rules / separators
-    t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm, '');
-
-    // bullets at start → "- "
-    t = t.replace(/^[\s]*[•∙◦·]+\s?/gm, '- ');
-
-    // unwrap **number)** or **Q:)** headings
-    t = t.replace(/^\s*\*\*\s*(\d+\s*[\.\)])\s*(.*?)\s*\*\*\s*$/gm, (_m,num,rest)=>`${num} ${rest}`);
-    t = t.replace(/^\s*\*\*\s*(Q\s*[:\.\)])\s*(.*?)\s*\*\*\s*$/gmi, (_m,q,rest)=>`${q} ${rest}`);
-
-    // canonicalize Answer/Explanation (allow bold + variants)
-    t = t.replace(/^\s*(?:\*\*)?\s*(ans|answer|correct)\s*[:=\-]?\s*(.+)$/gmi,
-                  (_m,_k,rest)=>`Answer: ${rest.trim()}`);
-    t = t.replace(/^\s*(?:\*\*)?\s*(explanation)\s*[:=\-]?\s*(.+)$/gmi,
-                  (_m,_k,rest)=>`Explanation: ${rest.trim()}`);
-
-    // ensure "Answer: X Explanation: ..." becomes two lines
-    t = t.replace(/^\s*Answer:\s*([A-Da-d])\s+(?=Explanation\s*:)/gmi, 'Answer: $1\n');
-
-    // options → "- A) text"   (handles A., A), (A), A : etc)
-    t = t.replace(
-      /^(\s*(?:-|\*)?\s*)(?:\(?\s*([A-Da-d])\s*\)?)[\s)*:.\-–—]*\s+(?=\S)/gm,
-      (_m,_lead, L) => `- ${L.toUpperCase()}) `
-    );
-
-    // if Answer is glued to last option line, insert a newline before it
-    t = t.replace(/([A-Da-d]\)\s.*?)(\s+Answer\s*:)/g, (_m, opt, ans) => `${opt}\n${ans.trimStart()}`);
-
-    // strip markdown headings like "#", "##" (they’re usually filenames/sections)
-    t = t.split('\n').filter(line => !/^\s*#{1,6}\s+/.test(line)).join('\n');
-
-    // tidy spaces & excess blanks
-    t = t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-    return t.trim() + '\n';
-  }
-
-  // Wrap your normalizeAll with the strong one
-  if (typeof window.normalizeAll === 'function') {
-    const prev = window.normalizeAll;
-    window.normalizeAll = (raw) => strongNormalize(prev(raw));
-  } else {
-    window.normalizeAll = strongNormalize;
-  }
-
-  // Hook paste into the textarea
-  (function hookPaste() {
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (!ta || ta.__autoHook) return;
-    ta.__autoHook = true;
-    ta.addEventListener('paste', () => {
-      setTimeout(() => {
-        ta.value = window.normalizeAll(ta.value || '');
-      }, 0);
-    });
-  })();
-
-  // Hook file Load (if your Load button/chooser exist)
-  (function hookLoad() {
-    const file = document.getElementById('txtFile');
-    const load = document.getElementById('loadBtn');
-    if (!file || !load || load.__autoHook) return;
-    load.__autoHook = true;
-    load.addEventListener('click', () => {
-      // wait a tick for your existing handler to fill the textarea, then normalize
-      setTimeout(() => {
-        const ta = document.getElementById('raw') || document.querySelector('textarea');
-        if (ta && ta.value) ta.value = window.normalizeAll(ta.value);
-      }, 60);
-    });
-  })();
-
-  // Normalize right before Parse runs (extra safety)
-  (function hookParse() {
-    const btn = document.getElementById('parseBtn')
-      || document.querySelector('[id*="parse"]')
-      || Array.from(document.querySelectorAll('button')).find(b =>
-           /parse\s*→?.*start\s*quiz|^parse\b/i.test((b.textContent||'').toLowerCase()));
-    if (!btn || btn.__autoHook) return;
-    btn.__autoHook = true;
-    btn.addEventListener('click', () => {
-      const ta = document.getElementById('raw') || document.querySelector('textarea');
-      if (ta && ta.value) ta.value = window.normalizeAll(ta.value);
-    }, { capture:true });
-  })();
-})();
-</script>
-<script>
-/* === Theme + Text Color Controls (persistent) ===================== */
+/* =================== Theme & Text color =================== */
 (function(){
-  const THEME_KEY = 'mcq-theme';
-  const INK_PREFIX = 'mcq-ink-'; // we store per-theme ink color
   const root = document.documentElement;
+  const THEME_KEY='mcq-theme', INK_PREFIX='mcq-ink-';
+  const themeBtn = document.getElementById('themeToggle');
+  const picker = document.getElementById('inkPicker');
+  const reset = document.getElementById('inkReset');
 
-  // initialize theme
   const savedTheme = localStorage.getItem(THEME_KEY);
   if (!root.dataset.theme) root.dataset.theme = savedTheme || 'light';
+  themeBtn.textContent = (root.dataset.theme === 'light') ? '🌞' : '🌙';
 
   function getInkKey(){ return INK_PREFIX + root.dataset.theme; }
-
-  // apply saved user color (if any) for current theme
+  function toColorInputValue(c){ if(!c) return '#000000'; if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c)) return c;
+    const m = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m){ const h=(n)=>(+n).toString(16).padStart(2,'0'); return '#'+h(m[1])+h(m[2])+h(m[3]); } return '#000000'; }
   function applySavedInk(){
     const val = localStorage.getItem(getInkKey());
     if (val) root.style.setProperty('--ink-user', val);
     else root.style.removeProperty('--ink-user');
-    // sync picker UI if present
-    const picker = document.getElementById('inkPicker');
-    if (picker){
-      picker.value = toColorInputValue(val || (root.dataset.theme==='light' ? '#101828' : '#e6e6e6'));
-    }
+    picker.value = toColorInputValue(val || (root.dataset.theme==='light' ? '#101828' : '#e6e6e6'));
   }
-
-  function toColorInputValue(c){
-    // normalize short/empty to a valid hex
-    if (!c) return '#000000';
-    // already hex
-    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c)) return c;
-    // rgb/rgba → hex (simple)
-    const m = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-    if (m){
-      const r = (+m[1]).toString(16).padStart(2,'0');
-      const g = (+m[2]).toString(16).padStart(2,'0');
-      const b = (+m[3]).toString(16).padStart(2,'0');
-      return '#' + r + g + b;
-    }
-    return '#000000';
-  }
-
-  // build UI (toggle + color picker + reset)
-  if (!document.getElementById('themeToggle')) {
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'max-width:1000px;margin:auto;padding:6px 18px 10px;display:flex;gap:10px;align-items:center;justify-content:flex-end';
-
-    const themeBtn = document.createElement('button');
-    themeBtn.id = 'themeToggle';
-    themeBtn.type = 'button';
-    themeBtn.title = 'Toggle theme';
-    themeBtn.textContent = (root.dataset.theme === 'light') ? '🌞' : '🌙';
-    themeBtn.style.cssText = 'border:1px solid var(--border-soft);background:var(--bg-soft);color:var(--ink);padding:8px 10px;border-radius:10px;cursor:pointer';
-
-    const label = document.createElement('span');
-    label.textContent = 'Text';
-    label.style.cssText = 'opacity:.8';
-
-    const picker = document.createElement('input');
-    picker.type = 'color';
-    picker.id = 'inkPicker';
-    picker.style.cssText = 'width:36px;height:32px;border:1px solid var(--border-soft);background:var(--bg-soft);border-radius:8px;padding:0;cursor:pointer';
-
-    const reset = document.createElement('button');
-    reset.type = 'button';
-    reset.title = 'Reset text color';
-    reset.textContent = '↺';
-    reset.style.cssText = 'border:1px solid var(--border-soft);background:var(--bg-soft);color:var(--ink);padding:6px 8px;border-radius:8px;cursor:pointer';
-
-    // PWA install button (hidden until eligible)
-    const installBtn = document.createElement('button');
-    installBtn.id = 'installBtn';
-    installBtn.type = 'button';
-    installBtn.title = 'Install app';
-    installBtn.textContent = '📥 Install';
-    installBtn.style.cssText = 'border:1px solid var(--border-soft);background:var(--bg-soft);color:var(--ink);padding:6px 10px;border-radius:8px;cursor:pointer;display:none';
-
-    wrap.append(themeBtn, label, picker, reset, installBtn);
-
-    const header = document.querySelector('header');
-    if (header) header.appendChild(wrap);
-    else { wrap.style.position='fixed'; wrap.style.bottom='12px'; wrap.style.right='12px'; wrap.style.zIndex='9999'; document.body.appendChild(wrap); }
-
-    // interactions
-    themeBtn.onclick = () => {
-      const next = (root.dataset.theme === 'light') ? 'dark' : 'light';
-      root.dataset.theme = next;
-      localStorage.setItem(THEME_KEY, next);
-      themeBtn.textContent = (next === 'light') ? '🌞' : '🌙';
-      applySavedInk(); // load that theme's saved color
-    };
-
-    picker.oninput = () => {
-      const val = picker.value;
-      root.style.setProperty('--ink-user', val);
-      localStorage.setItem(getInkKey(), val);
-    };
-
-    reset.onclick = () => {
-      localStorage.removeItem(getInkKey());
-      root.style.removeProperty('--ink-user');
-      applySavedInk();
-    };
-
-    // --- PWA install flow ---
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      installBtn.style.display = '';
-    });
-    installBtn.onclick = async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      try {
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          installBtn.style.display = 'none';
-        }
-      } catch {}
-      deferredPrompt = null;
-    };
-    window.addEventListener('appinstalled', () => {
-      installBtn.style.display = 'none';
-    });
-  }
-
-  // initial paint
+  themeBtn.onclick = ()=>{ const next = (root.dataset.theme === 'light') ? 'dark' : 'light'; root.dataset.theme = next; localStorage.setItem(THEME_KEY, next); themeBtn.textContent = (next === 'light') ? '🌞' : '🌙'; applySavedInk(); };
+  picker.oninput = ()=>{ const val = picker.value; root.style.setProperty('--ink-user', val); localStorage.setItem(getInkKey(), val); };
+  reset.onclick = ()=>{ localStorage.removeItem(getInkKey()); root.style.removeProperty('--ink-user'); applySavedInk(); };
   applySavedInk();
+
+  // PWA install
+  let deferredPrompt=null; const installBtn=document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; installBtn.style.display=''; });
+  installBtn.onclick = async ()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); try{const {outcome}=await deferredPrompt.userChoice; if(outcome==='accepted') installBtn.style.display='none';}catch{} deferredPrompt=null; };
+  window.addEventListener('appinstalled',()=> installBtn.style.display='none');
 })();
-</script>
-<script>
+
+/* =================== SW registration =================== */
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
-    .then(() => console.log("Service Worker Registered"));
+  navigator.serviceWorker.register('./sw.js').then(()=>console.log('SW registered'));
 }
 </script>
-  <!-- === ADD-ON: Refresh Button === -->
-<script>
-(function(){
-  function refreshApp() {
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        for (let name of names) caches.delete(name);
-      });
-    }
-    location.reload(true);
-  }
 
-  // create button
-  const btn = document.createElement("button");
-  btn.textContent = "🔄 Refresh";
-  btn.style.cssText =
-    "padding:8px 14px;border:1px solid #2a2e3a;border-radius:8px;background:#0f1219;color:#e6e6e6;cursor:pointer;margin:10px;";
-
-  btn.onclick = refreshApp;
-
-  // place it at top under header (or change to bottom if you want)
-  window.addEventListener("DOMContentLoaded", () => {
-    const header = document.querySelector("header");
-    if (header) header.appendChild(btn);
-    else document.body.appendChild(btn); // fallback
-  });
-})();
-</script>
-<!-- === /ADD-ON === -->
-  <!-- === ADD-ON: MCQ Bank (IndexedDB Save/Load/Edit/Export) === -->
-<style>
-  /* Tiny modal styles */
-  .bank-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:9998}
-  .bank-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9999}
-  .bank-card{max-width:900px;width:95%;background:var(--card,#fff);color:var(--ink,#111);
-    border:1px solid var(--border,#d0d7e2);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);overflow:hidden}
-  .bank-h{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border,#d0d7e2)}
-  .bank-h b{font-size:16px}
-  .bank-body{padding:12px 16px;display:grid;grid-template-columns:280px 1fr;gap:12px}
-  .bank-col{border:1px solid var(--border,#d0d7e2);border-radius:10px;padding:10px;background:var(--bg-soft,#fafbff)}
-  .bank-row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
-  .bank-list{max-height:48vh;overflow:auto;margin-top:6px}
-  .bank-item{padding:8px;border:1px solid var(--border,#d0d7e2);border-radius:8px;margin:6px 0;background:var(--bg,#fff);cursor:pointer}
-  .bank-item small{opacity:.7;margin-left:6px}
-  .bank-actions button{margin-right:8px}
-  .bank-input{width:100%;padding:8px;border:1px solid var(--border,#d0d7e2);border-radius:8px;background:var(--bg,#fff);color:var(--ink,#111)}
-  .bank-tag{padding:2px 8px;border:1px solid var(--border,#d0d7e2);border-radius:100px;background:var(--bg,#fff)}
-  .bank-empty{opacity:.7;padding:8px}
-  @media (max-width:800px){ .bank-body{grid-template-columns:1fr} }
-</style>
-
-<div class="bank-modal-backdrop" id="bankBackdrop"></div>
-<div class="bank-modal" id="bankModal">
-  <div class="bank-card">
-    <div class="bank-h">
-      <b>📚 My MCQ Bank</b>
-      <div class="bank-actions">
-        <button id="bankExport">Export JSON</button>
-        <button id="bankImport">Import JSON</button>
-        <button id="bankClose">✕</button>
-      </div>
-    </div>
-    <div class="bank-body">
-      <div class="bank-col">
-        <div class="bank-row">
-          <input id="bankSearch" class="bank-input" placeholder="Search title…" />
-        </div>
-        <div class="bank-row">
-          <input id="bankNewFolder" class="bank-input" placeholder="New folder name…" />
-          <button id="bankAddFolder">Add</button>
-        </div>
-        <div class="bank-row">
-          <label>Folder:</label>
-          <select id="bankFolder" class="bank-input"></select>
-          <button id="bankAll">All</button>
-        </div>
-        <div id="bankList" class="bank-list"></div>
-      </div>
-      <div class="bank-col" id="bankDetail">
-        <div class="bank-row">
-          <input id="bankTitle" class="bank-input" placeholder="Title" />
-        </div>
-        <div class="bank-row">
-          <label>Folder:</label>
-          <select id="bankEditFolder" class="bank-input" style="max-width:200px"></select>
-          <span class="bank-tag" id="bankMeta"></span>
-        </div>
-        <div class="bank-row">
-          <button id="bankLoad">Load into Quiz</button>
-          <button id="bankSaveMeta">Save Changes</button>
-          <button id="bankDelete">Delete</button>
-        </div>
-        <div style="margin-top:8px">
-          <details>
-            <summary>Show raw text</summary>
-            <textarea id="bankRaw" class="bank-input" style="min-height:160px"></textarea>
-            <div class="bank-row">
-              <button id="bankApplyRaw">Replace with this raw + Parse</button>
-            </div>
-          </details>
-        </div>
-        <div id="bankEmpty" class="bank-empty">Select a saved set to view details.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-(function(){
-  // ---- tiny IndexedDB helper ----
-  const DB_NAME = 'mcqbank-v1';
-  const DB_STORE = 'sets';
-  const DB_FOLDERS = 'folders';
-  function idb(){ return new Promise((res,rej)=>{
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = (e)=>{
-      const db = req.result;
-      if(!db.objectStoreNames.contains(DB_STORE)){
-        const s = db.createObjectStore(DB_STORE, { keyPath:'id', autoIncrement:true });
-        s.createIndex('by_title','title',{unique:false});
-        s.createIndex('by_folder','folder',{unique:false});
-        s.createIndex('by_updated','updatedAt',{unique:false});
-      }
-      if(!db.objectStoreNames.contains(DB_FOLDERS)){
-        db.createObjectStore(DB_FOLDERS, { keyPath:'name' });
-      }
-    };
-    req.onsuccess = ()=>res(req.result);
-    req.onerror = ()=>rej(req.error);
-  });}
-  function tx(db, store, mode='readonly'){ return db.transaction(store, mode).objectStore(store); }
-
-  async function dbAddSet(set){
-    const db = await idb();
-    set.createdAt = set.createdAt || Date.now();
-    set.updatedAt = Date.now();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').add(set);
-      r.onsuccess = ()=>res(r.result);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbPutSet(set){
-    const db = await idb();
-    set.updatedAt = Date.now();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').put(set);
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbGetAll(folder, search){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const s = tx(db, DB_STORE);
-      const out = [];
-      const q = s.index('by_updated').openCursor(null, 'prev');
-      q.onsuccess = ()=>{
-        const cur = q.result;
-        if(!cur) return res(out);
-        const v = cur.value;
-        if (!folder || folder==='__ALL__' || v.folder === folder){
-          if(!search || v.title.toLowerCase().includes(search.toLowerCase())) out.push(v);
-        }
-        cur.continue();
-      };
-      q.onerror = ()=>rej(q.error);
-    });
-  }
-  async function dbDelete(id){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_STORE, 'readwrite').delete(id);
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-  async function dbFoldersList(){
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const s = tx(db, DB_FOLDERS);
-      const out = [];
-      const q = s.openCursor();
-      q.onsuccess = ()=>{ const cur = q.result; if(!cur) return res(out); out.push(cur.value.name); cur.continue(); };
-      q.onerror = ()=>rej(q.error);
-    });
-  }
-  async function dbFolderAdd(name){
-    name = (name||'').trim();
-    if(!name) return;
-    const db = await idb();
-    return new Promise((res,rej)=>{
-      const r = tx(db, DB_FOLDERS, 'readwrite').put({name});
-      r.onsuccess = ()=>res(true);
-      r.onerror = ()=>rej(r.error);
-    });
-  }
-
-  // ---- UI hooks / helpers ----
-  const $ = (q)=>document.querySelector(q);
-  const $$= (q)=>Array.from(document.querySelectorAll(q));
-  const els = {
-    saveBtn: null, bankBtn: null,
-    modal: $('#bankModal'), backdrop: $('#bankBackdrop'),
-    list: $('#bankList'),
-    folderSel: $('#bankFolder'),
-    search: $('#bankSearch'),
-    newFolder: $('#bankNewFolder'),
-    addFolder: $('#bankAddFolder'),
-    allBtn: $('#bankAll'),
-    title: $('#bankTitle'),
-    editFolder: $('#bankEditFolder'),
-    meta: $('#bankMeta'),
-    load: $('#bankLoad'),
-    saveMeta: $('#bankSaveMeta'),
-    del: $('#bankDelete'),
-    raw: $('#bankRaw'),
-    applyRaw: $('#bankApplyRaw'),
-    empty: $('#bankEmpty'),
-    close: $('#bankClose'),
-    exportBtn: $('#bankExport'),
-    importBtn: $('#bankImport')
-  };
-  let current = null; // currently selected record in the modal
-
-  // Add two buttons near your Parse area
-  function addTopButtons(){
-    const parseBtn = document.getElementById('parseBtn') || $$('button').find(b=>/parse/i.test(b.textContent||''));
-    if (!parseBtn) return;
-    if (!els.saveBtn){
-      els.saveBtn = document.createElement('button');
-      els.saveBtn.textContent = '💾 Save Set';
-      els.saveBtn.style.marginLeft = '8px';
-      els.saveBtn.onclick = saveCurrentSet;
-      parseBtn.parentElement.appendChild(els.saveBtn);
-    }
-    if (!els.bankBtn){
-      els.bankBtn = document.createElement('button');
-      els.bankBtn.textContent = '📚 Open Bank';
-      els.bankBtn.style.marginLeft = '8px';
-      els.bankBtn.onclick = openModal;
-      parseBtn.parentElement.appendChild(els.bankBtn);
-    }
-  }
-
-  // Try to infer a title from the text: first markdown heading or first line
-  function inferTitle(raw){
-    const lines = (raw||'').split(/\r?\n/);
-    const h = lines.find(l => /^\s*#{1,6}\s+/.test(l));
-    if (h) return h.replace(/^\s*#{1,6}\s+/,'').trim().slice(0,120);
-    const first = lines.find(l => l.trim().length>0);
-    return (first||'Untitled').replace(/[*_`#>]+/g,'').trim().slice(0,120);
-  }
-
-  // Save the current QUIZ + raw textarea
-  async function saveCurrentSet(){
-    try{
-      const rawEl = document.getElementById('raw') || document.querySelector('textarea');
-      const raw = String(rawEl?.value||'').trim();
-      if (!raw) { alert('Nothing to save — paste or load MCQs first.'); return; }
-      if (!window.QUIZ || !Array.isArray(window.QUIZ) || window.QUIZ.length===0){
-        if(!confirm('No parsed items found. Save raw text anyway?')) return;
-      }
-      // choose folder (optional): use prompt for quick UX
-      const folders = await dbFoldersList();
-      const folder = prompt('Folder (optional). Existing: ' + (folders.join(', ')||'(none)')) || '';
-      if (folder) await dbFolderAdd(folder);
-
-      const set = {
-        title: inferTitle(raw),
-        folder: folder || '',
-        items: window.QUIZ||[],
-        rawText: raw
-      };
-      const id = await dbAddSet(set);
-      alert('Saved ✓ (' + set.title + ')');
-    }catch(e){
-      console.error(e); alert('Save failed: ' + (e.message||e));
-    }
-  }
-
-  // Modal controls
-  function openModal(){ els.backdrop.style.display='block'; els.modal.style.display='flex'; refreshFolders().then(listSets); resetDetail(); }
-  function closeModal(){ els.modal.style.display='none'; els.backdrop.style.display='none'; }
-  els.close.onclick = closeModal; els.backdrop.onclick = closeModal;
-
-  async function refreshFolders(){
-    const list = await dbFoldersList();
-    const all = ['__ALL__', ...list];
-    const opts = all.map(n=>`<option value="${n}">${n==='__ALL__'?'All folders':n}</option>`).join('');
-    els.folderSel.innerHTML = opts;
-    els.editFolder.innerHTML = list.map(n=>`<option value="${n}">${n}</option>`).join('');
-  }
-
-  els.addFolder.onclick = async ()=>{
-    const name = (els.newFolder.value||'').trim();
-    if (!name) return;
-    await dbFolderAdd(name);
-    els.newFolder.value = '';
-    await refreshFolders();
-    await listSets();
-  };
-  els.allBtn.onclick = ()=>{ els.folderSel.value='__ALL__'; listSets(); };
-  els.folderSel.onchange = listSets;
-  els.search.oninput = ()=>{ listSets(); };
-
-  async function listSets(){
-    const folder = els.folderSel.value || '__ALL__';
-    const term = els.search.value || '';
-    const rows = await dbGetAll(folder, term);
-    if (!rows.length){ els.list.innerHTML = `<div class="bank-empty">No saved sets.</div>`; return; }
-    els.list.innerHTML = rows.map(r => `
-      <div class="bank-item" data-id="${r.id}">
-        <b>${escapeHtml(r.title)}</b> ${r.folder?`<small>• ${escapeHtml(r.folder)}</small>`:''}
-        <div><small>${new Date(r.updatedAt).toLocaleString()}</small></div>
-      </div>
-    `).join('');
-    els.list.querySelectorAll('.bank-item').forEach(div=>{
-      div.onclick = async ()=>{
-        const id = +div.dataset.id;
-        const folder = els.folderSel.value || '__ALL__';
-        const rows = await dbGetAll(folder, els.search.value||'');
-        const sel = rows.find(x=>x.id===id);
-        if (sel) showDetail(sel);
-      };
-    });
-  }
-
-  function resetDetail(){
-    current = null;
-    els.title.value = '';
-    els.editFolder.value = '';
-    els.meta.textContent = '';
-    els.raw.value = '';
-    els.empty.style.display = '';
-  }
-  function showDetail(rec){
-    current = rec;
-    els.title.value = rec.title||'';
-    els.editFolder.value = rec.folder||'';
-    els.meta.textContent = `${(rec.items||[]).length} items • id ${rec.id}`;
-    els.raw.value = rec.rawText||'';
-    els.empty.style.display = 'none';
-  }
-
-  els.saveMeta.onclick = async ()=>{
-    if (!current) return;
-    current.title = els.title.value.trim() || current.title;
-    current.folder = els.editFolder.value || '';
-    current.rawText = els.raw.value;
-    await dbPutSet(current);
-    alert('Updated ✓');
-    await listSets();
-  };
-
-  els.del.onclick = async ()=>{
-    if (!current) return;
-    if (!confirm('Delete this saved set?')) return;
-    await dbDelete(current.id);
-    resetDetail();
-    await listSets();
-  };
-
-  els.load.onclick = async ()=>{
-    if (!current) return;
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (ta) ta.value = current.rawText || '';
-    // click your existing Parse button to re-parse and render
-    (document.getElementById('parseBtn') || document.querySelector('[id*="parse"]'))?.click();
-    closeModal();
-  };
-
-  els.applyRaw.onclick = async ()=>{
-    if (!current) return;
-    const ta = document.getElementById('raw') || document.querySelector('textarea');
-    if (ta) ta.value = els.raw.value || '';
-    (document.getElementById('parseBtn') || document.querySelector('[id*="parse"]'))?.click();
-  };
-
-  // Export / Import
-  els.exportBtn.onclick = async ()=>{
-    const rows = await dbGetAll('__ALL__','');
-    const blob = new Blob([JSON.stringify(rows,null,2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mcq-bank.json';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  };
-  els.importBtn.onclick = async ()=>{
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.json,application/json';
-    inp.onchange = async ()=>{
-      const f = inp.files?.[0]; if(!f) return;
-      const txt = await f.text();
-      try{
-        const arr = JSON.parse(txt);
-        if(!Array.isArray(arr)) throw new Error('Invalid JSON format');
-        for(const rec of arr){
-          // strip any old id; let IndexedDB assign new one
-          const {id, ...rest} = rec || {};
-          await dbAddSet(rest);
-        }
-        alert('Import complete ✓');
-        await listSets();
-      }catch(e){ alert('Import failed: '+(e.message||e)); }
-    };
-    inp.click();
-  };
-
-  // small util
-  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-  // mount buttons
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addTopButtons);
-  else addTopButtons();
-})();
-</script>
-<!-- === /ADD-ON: MCQ Bank === -->
 </body>
 </html>
