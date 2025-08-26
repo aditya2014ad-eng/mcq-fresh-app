@@ -1,6 +1,6 @@
 
 /* MCQ Quiz PWA Service Worker — network-first for HTML, cache-first for assets */
-const VERSION = 'v7';                        // << bump this on every release
+const VERSION = 'v8';                        // << bump this on every release
 const CACHE_NAME = `mcq-quiz-${VERSION}`;
 
 const ASSETS = [
