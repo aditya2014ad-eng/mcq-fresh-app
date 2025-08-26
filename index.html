@@ -396,7 +396,8 @@ const payloadAfterColon = l => l.split(/:/).slice(1).join(':').trim();
 function cleanAnswerPayload(p){
   if (!p) return ''; let s = String(p).trim();
   s = s.replace(/\*\*/g,'').replace(/__/g,'').replace(/`/g,'');           // md
-  s = s.replace(/[$begin:math:text$\\[\\{][^$end:math:text$\]\}]*[\)\]\}]\s*$/g, '');                   // trailing [1], (ref)
+  // drop trailing citations/notes like [1], (ref), {note}
+  s = s.replace(/[\(\[\{][^()\[\]{}]*[\)\]\}]\s*$/g, '');
   let m = s.match(/^[A-Da-d]\s*[\)\.\-]/); if (m) return m[0].trim()[0].toUpperCase();
   m = s.match(/([A-Da-d])(?:\s*[\*\)\]]*)\s*$/); if (m) return m[1].toUpperCase();
   m = s.match(/\b([A-Da-d])\b/); if (m) return m[1].toUpperCase();
@@ -612,9 +613,37 @@ tDisp.textContent = fmt((parseFloat(mins.value||20))*60);
 
 /* =================== SW registration =================== */
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').then(()=>console.log('SW registered'));
+  (function(){
+    if (!('serviceWorker' in navigator)) return;
+
+    // Register SW
+    navigator.serviceWorker.register('./sw.js');
+
+    // Poll for updates occasionally and on tab focus
+    async function checkForUpdate() {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkForUpdate();
+    });
+    setInterval(checkForUpdate, 60_000); // every minute
+
+    // Listen for messages from SW
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data?.type === 'SW_ACTIVE') {
+        // New SW took control → prompt user to refresh
+        const btn = document.createElement('button');
+        btn.textContent = 'New version available — Refresh';
+        btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9999;padding:10px 14px;border:1px solid #2a2e3a;border-radius:8px;background:#0f1219;color:#e6e6e6;cursor:pointer';
+        btn.onclick = () => location.reload();
+        document.body.appendChild(btn);
+      }
+    });
+  })();
 }
 </script>
-
 </body>
 </html>
