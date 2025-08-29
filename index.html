@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <title>MCQ Q-Bank</title>
+
+<!-- PWA manifest & theme -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f6feb">
+<!-- Optional favicons (ensure these files exist in the same folder) -->
+<link rel="icon" type="image/png" sizes="192x192" href="mcq icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="logo 2.png">
 
 <style>
   :root{
@@ -443,6 +451,19 @@ function startTimer(m){deadline=Date.now()+m*60*1000;if(tick)clearInterval(tick)
 document.getElementById('tStart').onclick=()=>startTimer(+mins.value||20);
 document.getElementById('tPause').onclick=()=>clearInterval(tick);
 document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textContent=fmt((+mins.value||20)*60); try{ updateScore(); }catch{};};
+</script>
+
+</script>
+
+<script>
+// Register Service Worker for PWA install/offline
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => {
+      console.log('SW registered', reg.scope || '');
+    })
+    .catch(err => console.error('SW registration failed:', err));
+}
 </script>
 
 </body>
