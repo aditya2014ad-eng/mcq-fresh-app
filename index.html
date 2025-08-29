@@ -63,6 +63,7 @@
   </div>
   <div class="toolbar">
     <button id="themeToggle" class="pill" title="Toggle light/dark">🌙</button>
+    <button id="installBtn" class="pill" style="display:none" title="Install as app">📥 Install</button>
     <span id="score" class="stats" style="margin-right:10px"></span>
     <span class="muted">Text</span>
     <div>
@@ -314,6 +315,97 @@ function parseMCQ(text){
       .replace(/^\s*(?:Q\s*\d*|Q|(\d+))\s*[\.\):]\s*/i, '')
       .trim();
 
+  // --- Helper functions for answer/option cleaning & matching ---
+  // Keep the intended A–D answer even if OCR added junk, markdown, etc.
+  function cleanAnswerPayload(p){
+    if (!p) return '';
+    let s = String(p).trim();
+
+    // Strip markdown and common wrappers
+    s = s.replace(/\*\*|__/g, '').replace(/`/g, '');
+
+    // Remove surrounding quotes/brackets and trailing references e.g. [1], (ref)
+    s = s.replace(/^[\s"'\(\[\{]+/, '').replace(/[\s"'\)\]\}]+$/, '');
+    s = s.replace(/[\(\[\{][^()\[\]{}]*[\)\]\}]\s*$/g, '');
+
+    // Normalize separators like "Ans wer: B" -> try to keep only payload
+    s = s.replace(/\b(answer|ans|correct)\b[^:]*:\s*/i, '');
+
+    // If starts with "B)"/"B."/"(B)" capture the letter
+    let m = s.match(/^\s*\(?\s*([A-Da-d])\s*\)?\s*[\)\.\-:]/);
+    if (m) return m[1].toUpperCase();
+
+    // If contains a standalone letter near the end (handles OCR junk)
+    m = s.match(/([A-Da-d])(?:\s*[\*\)\]\.:\-]*)\s*$/);
+    if (m) return m[1].toUpperCase();
+
+    // Any isolated letter token
+    m = s.match(/\b([A-Da-d])\b/);
+    if (m) return m[1].toUpperCase();
+
+    // Otherwise return the cleaned text so we can fuzzy-match to option text
+    return s.trim();
+  }
+
+  function resolveCorrectIndex(options, rawPayload){
+    if (!options?.length) return -1;
+
+    const payload = cleanAnswerPayload(rawPayload);
+
+    // If payload is A–D letter, return directly
+    if (/^[A-D]$/.test(payload)) {
+      const idx = payload.charCodeAt(0) - 65;
+      return (idx >= 0 && idx < options.length) ? idx : -1;
+    }
+
+    // Normalize function for better fuzzy matching
+    const norm = (s) => String(s||'')
+      .toLowerCase()
+      .replace(/\*\*|__/g,'')
+      .replace(/`/g,'')
+      .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
+      .replace(/[–—]/g,'-')
+      .replace(/[\s\.\,\;\:\!\?\(\)\[\]\{\}"'`]+/g,' ') // punctuation -> space
+      .replace(/\s+/g,' ')
+      .trim();
+
+    const want = norm(payload);
+
+    // Build candidate scores against each option
+    let bestIdx = -1;
+    let bestScore = -1;
+
+    options.forEach((o, i) => {
+      const n = norm(o);
+
+      if (!n || !want) return;
+
+      // Exact match
+      if (n === want) {
+        if (bestScore < 100) { bestScore = 100; bestIdx = i; }
+        return;
+      }
+
+      // Contains either way
+      if (n.includes(want) || want.includes(n)) {
+        const score = Math.min(n.length, want.length); // longer overlap = higher
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
+        return;
+      }
+
+      // Token overlap (Jaccard-like)
+      const a = new Set(n.split(' '));
+      const b = new Set(want.split(' '));
+      const inter = [...a].filter(t => b.has(t)).length;
+      const union = new Set([...a, ...b]).size || 1;
+      const j = inter / union; // 0..1
+      const score = j * 50 + inter; // weight
+      if (score > bestScore) { bestScore = score; bestIdx = i; }
+    });
+
+    return bestIdx;
+  }
+
   const items = [];
 
   for (const rawBlock of blocks){
@@ -333,11 +425,21 @@ function parseMCQ(text){
     let stem = stemParts.join(' ').trim();
 
     // 2) Options (A–D); keep order
-    const options = [];
+    const optLines = [];
     while (lines.length && OPT_RE.test(lines[0])){
       const m = lines.shift().match(OPT_RE);
-      options.push((m && m[2] ? m[2] : '').trim());
+      optLines.push((m && m[2] ? m[2] : '').trim());
     }
+    // Normalize option text for robust matching
+    const options = optLines.map(s =>
+      String(s || '')
+        .replace(/\*\*|__/g,'')
+        .replace(/`/g,'')
+        .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
+        .replace(/[–—]/g,'-')
+        .replace(/\s+/g,' ')
+        .trim()
+    );
 
     // 3) Answer + Explanation (any order, can span paragraphs)
     let ansPayload = '', explanation = '';
@@ -365,16 +467,9 @@ function parseMCQ(text){
     // Resolve correct option index
     let correctIndex = -1;
     if (ansPayload){
-      const letter = ansPayload.match(/\b([A-Da-d])\b/);
-      if (letter){ correctIndex = letter[1].toUpperCase().charCodeAt(0) - 65; }
-      if (correctIndex < 0){
-        const norm = s => String(s).toLowerCase().replace(/\s+/g,' ').trim();
-        const want = norm(ansPayload.replace(OPT_RE,'$2'));
-        options.forEach((o,i) => { if (norm(o) === want) correctIndex = i; });
-        if (correctIndex < 0){
-          options.forEach((o,i) => { const n=norm(o); if (n.includes(want) || want.includes(n)) correctIndex = i; });
-        }
-      }
+      let payload = ansPayload;
+      payload = cleanAnswerPayload(payload);
+      correctIndex = resolveCorrectIndex(options, payload);
     }
     if (correctIndex < 0) correctIndex = 0; // safe default when answer is missing
 
@@ -389,12 +484,12 @@ function renderQuiz(){
     <div class="q">
       <div>${i+1}. ${mdInline(q.stem)}</div>
       <ul class="opts">
-        ${q.options.map((o,j)=>{
+        ${q.options.map((opt,j)=>{
           let cls="opt";
           if(FINISHED){ if(j===q.correctIndex) cls+=" correct"; else if(ANSWERS[i]===j) cls+=" wrong"; }
           return `<li class="${cls}">
             <label><input type="radio" name="q${i}" value="${j}" ${ANSWERS[i]===j?"checked":""} ${FINISHED?"disabled":""}>
-            ${String.fromCharCode(65+j)}) ${mdInline(o)}</label>
+            ${String.fromCharCode(65+j)}) ${mdInline(String(opt || ''))}</label>
           </li>`;
         }).join("")}
       </ul>
@@ -453,6 +548,41 @@ document.getElementById('tPause').onclick=()=>clearInterval(tick);
 document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textContent=fmt((+mins.value||20)*60); try{ updateScore(); }catch{};};
 </script>
 
+</script>
+
+<script>
+// PWA install button logic (shows when site is installable over HTTPS/localhost)
+(function(){
+  let deferredPrompt = null;
+  const btn = document.getElementById('installBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the mini-infobar on mobile and store event
+    e.preventDefault();
+    deferredPrompt = e;
+    if (btn) btn.style.display = '';
+  });
+
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      try {
+        const choice = await deferredPrompt.userChoice;
+        // Hide button if accepted
+        if (choice && choice.outcome === 'accepted') {
+          btn.style.display = 'none';
+        }
+      } catch {}
+      deferredPrompt = null;
+    });
+  }
+
+  window.addEventListener('appinstalled', () => {
+    if (btn) btn.style.display = 'none';
+    console.log('PWA installed');
+  });
+})();
 </script>
 
 <script>
