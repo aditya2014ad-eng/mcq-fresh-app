@@ -531,7 +531,15 @@ document.getElementById('parseBtn').onclick=()=>{
   FINISHED=false; ANSWERS={};
   renderQuiz(); updateScore();
 };
-document.getElementById('finishBtn').onclick=()=>{FINISHED=true; renderQuiz();};
+document.getElementById('finishBtn').onclick = () => {
+  // Pause/stop the countdown but keep the remaining time visible
+  try { clearInterval(tick); } catch {}
+  tick = null;
+
+  // Show results
+  FINISHED = true;
+  renderQuiz();
+};
 document.getElementById('shuffleQ').onclick=()=>{QUIZ.sort(()=>Math.random()-.5); renderQuiz();};
 document.getElementById('shuffleO').onclick=()=>{QUIZ.forEach(q=>{q.options.sort(()=>Math.random()-.5)}); renderQuiz();};
 document.getElementById('hardReset').onclick=()=>{QUIZ=[];ANSWERS={};FINISHED=false;quizCard.style.display="none";scoreEl.textContent="";};
