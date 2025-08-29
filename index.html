@@ -3,647 +3,447 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>MCQ Q-Bank • Text/Markdown → Quiz → PDF</title>
-
-<link rel="preconnect" href="https://cdnjs.cloudflare.com">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1f6feb">
-
-<!-- Favicons / App icons (use your existing files in repo root) -->
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="mcq icon.png">
-<link rel="icon" type="image/png" sizes="512x512" href="logo 2.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<title>MCQ Q-Bank</title>
 
 <style>
   :root{
-    color-scheme: light dark;
-    --bg:#0f1115; --bg-soft:#0f1219; --card:#12141b; --ink:#e6e6e6;
-    --muted:#a8b3cf; --border:#222; --border-soft:#2a2e3a; --opt:#0d1118;
-    --error-bg:#1b0f11; --error-ink:#ffb3b3; --accent:#1f6feb; --accent-ink:#fff;
-    --ok:#2e7d32; --bad:#c62828; --shadow:0 6px 24px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
-    --radius:14px;
+    --bg:#f9f9f9; --ink:#222;
+    --header-bg:#1f6feb; --header-ink:#ffffff;
+    --card-bg:#ffffff; --border:#dddddd;
+    --opt-bg:#f5f5f5;
+    --pill-bg:#ffffff; --pill-ink:#1f6feb;
   }
-  html[data-theme="light"]{
-    --bg:#ffffff; --bg-soft:#ffffff; --card:#ffffff; --ink:#101828;
-    --muted:#667085; --border:#d0d7e2; --border-soft:#cfd5e1; --opt:#fbfdff;
-    --error-bg:#fff5f5; --error-ink:#7a1111; --shadow:0 8px 24px rgba(16,24,40,.08), 0 2px 8px rgba(16,24,40,.06);
+  [data-theme="dark"]{
+    --bg:#0f1115; --ink:#e6e6e6;
+    --header-bg:#111827; --header-ink:#e6e6e6;
+    --card-bg:#171a21; --border:#2a2e3a;
+    --opt-bg:#0f1219;
+    --pill-bg:#0f1219; --pill-ink:#e6e6e6;
   }
 
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
-  header{position:sticky;top:0;z-index:1;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg-soft)}
-  main{max-width:1000px;margin:auto;padding:18px}
-  .brand{display:flex;align-items:center;gap:10px}
-  .brand img{width:28px;height:28px;border-radius:6px}
-  .title{margin:0;font-size:18px}
+  *{ box-sizing:border-box }
+  body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; justify-content:space-between; align-items:center; padding:12px 18px; background:var(--header-bg); color:var(--header-ink); position:sticky; top:0; z-index:10; }
+  header .brand { display:flex; align-items:center; gap:12px; }
+  header img { width:64px; height:64px; border-radius:12px; background:#fff; padding:6px; box-shadow:0 4px 14px rgba(0,0,0,.18); }
+  header h1 { margin:0; font-size:22px; }
 
-  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
-  .pill{border:1px solid var(--border-soft);background:var(--bg-soft);color:var(--ink);padding:8px 10px;border-radius:10px;cursor:pointer}
-  .pill:disabled{opacity:.6;cursor:not-allowed}
+  .toolbar { display:flex; gap:10px; align-items:center; }
+  .pill { background:var(--pill-bg); color:var(--pill-ink); padding:8px 12px; border-radius:10px; border:1px solid var(--border); cursor:pointer; font-size:14px; }
+  .pill:active{ transform:translateY(1px); }
 
-  .card{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);margin:14px 0}
-  .inner{padding:16px}
-  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  main { max-width:900px; margin:20px auto; padding:12px; }
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:18px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
 
-  textarea{width:100%;min-height:260px;background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:12px;padding:10px;line-height:1.5}
-  input[type="file"],input[type="text"],select{background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:10px;padding:8px 10px}
-  input[type="text"]{min-width:220px;flex:1}
-  button{background:var(--bg-soft);color:var(--ink);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px;cursor:pointer;transition:transform .06s ease, filter .12s ease, box-shadow .12s ease}
-  button:hover{transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 4px 16px rgba(0,0,0,.15)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  textarea { width:100%; min-height:260px; padding:10px; font-size:15px; border-radius:10px; border:1px solid var(--border); background:var(--opt-bg); color:var(--ink); }
 
-  .q{padding:14px;border:1px solid var(--border-soft);border-radius:12px;margin:10px 0;background:var(--bg-soft)}
-  .q > div:first-child{font-size:17px}
-  .opts{list-style:none;padding:0;margin:10px 0;display:grid;gap:10px}
-  .opt{padding:10px;border:1px solid var(--border-soft);border-radius:10px;background:var(--opt)}
-  .opt label{display:block;color:var(--ink)}
-  .opt input[type="radio"]{accent-color:var(--accent);transform:scale(1.15);margin-right:6px}
-  .opt.correct{border-color:var(--ok)}
-  .opt.wrong{border-color:var(--bad)}
-  .opt:has(input[type="radio"]:checked){border-color:var(--accent);background:rgba(31,111,235,.10)}
-
-  .muted{color:var(--muted)}
-  .stats{font-variant-numeric:tabular-nums}
-  .error{border:1px solid color-mix(in srgb, var(--error-ink) 40%, transparent);background:var(--error-bg);color:var(--error-ink);padding:10px;border-radius:10px}
-
-  code{padding:1px 4px;border-radius:5px;background:color-mix(in srgb, var(--bg-soft) 92%, var(--ink) 8%);border:1px solid var(--border-soft);color:var(--ink)}
-
-  /* user text color override (per theme) */
-  :root{ --ink-user: ; }
-  body, header .title, .muted, .stats, textarea, input, button, .q > div:first-child, .opt label, code {
-    color: var(--ink-user, var(--ink));
-  }
-  button.primary{ color: var(--accent-ink); }
+  .q { padding:12px; border:1px solid var(--border); border-radius:12px; margin:10px 0; background:var(--card-bg); }
+  .q > div:first-child { font-weight:600; margin-bottom:6px; }
+  .opts { list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+  .opt { padding:8px; border:1px solid var(--border); border-radius:10px; background:var(--opt-bg); }
+  .opt.correct { border-color:#2e7d32; }
+  .opt.wrong { border-color:#c62828; }
 </style>
-
-<!-- jsPDF for export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
 <header>
-  <div class="row" style="justify-content:space-between">
-    <div class="brand">
-      <img src="mcq icon.png" alt="App">
-      <h1 class="title">MCQ Q-Bank</h1>
-    </div>
-    <div class="toolbar">
-      <button id="themeToggle" class="pill" title="Toggle light/dark">🌙</button>
-      <span class="muted">Text</span>
-      <input id="inkPicker" type="color" class="pill" style="width:40px;height:34px;padding:0">
-      <button id="inkReset" class="pill" title="Reset text color">↺</button>
-      <button id="installBtn" class="pill" style="display:none">📥 Install</button>
-      <div class="pill" style="display:flex;gap:6px;align-items:center">
-        ⏱️ <input id="mins" type="number" value="20" min="0" style="width:64px">
-        <button id="tStart" class="pill">Start</button>
-        <button id="tPause" class="pill">Pause</button>
-        <button id="tReset" class="pill">Reset</button>
-        <b id="tDisp">20:00</b>
-      </div>
+  <div class="brand">
+    <img src="mcq icon.png" alt="Logo">
+    <h1>MCQ Q-Bank</h1>
+  </div>
+  <div class="toolbar">
+    <button id="themeToggle" class="pill" title="Toggle light/dark">🌙</button>
+    <span id="score" class="stats" style="margin-right:10px"></span>
+    <span class="muted">Text</span>
+    <div>
+      <input id="mins" type="number" value="20" style="width:60px"> 
+      <button id="tStart" class="pill">Start</button>
+      <button id="tPause" class="pill">Pause</button>
+      <button id="tReset" class="pill">Reset</button>
+      <b id="tDisp">20:00</b>
     </div>
   </div>
 </header>
 
 <main>
-  <div class="card"><div class="inner">
-    <div class="row">
-      <input id="txtFile" type="file" accept=".txt,.md,.json,.csv,text/plain">
-      <button id="loadBtn">📂 Load</button>
-      <button id="exampleBtn">✨ Insert Example</button>
+  <div class="card">
+    <p class="muted" style="margin:8px 0 6px"><b>Paste text MCQs</b></p>
+
+    <div class="row" style="margin-top:8px">
+      <input id="setTitle" placeholder="Saved set title" style="flex:1 1 320px" />
+      <button id="saveSet" class="pill">💾 Save Set</button>
+      <select id="savedList" style="min-width:160px"></select>
+      <button id="deleteSet" class="pill">🗑️ Delete Set</button>
+      <button id="exportSet" class="pill">⬇️ Export Set</button>
+      <button id="exportAll" class="pill">⬇️ Export All</button>
+      <input id="importSetFile" type="file" accept=".json" style="display:none" />
+      <button id="importSet" class="pill">⬆️ Import Set</button>
+      <input id="importBankFile" type="file" accept=".json" style="display:none" />
+      <button id="importBank" class="pill">⬆️ Import Bank</button>
     </div>
 
     <div class="row" style="margin-top:8px">
-      <input id="setTitle" type="text" placeholder="Set title (e.g., 'Unit 5 GI')">
-      <button id="saveSet">💾 Save Set</button>
-      <select id="savedList" style="min-width:240px"><option value="">Saved sets…</option></select>
-      <button id="deleteSet">🗑️ Delete</button>
-      <button id="exportSet">⬇️ Export Set</button>
-      <button id="exportAll">⬇️ Export All</button>
-
-      <!-- NEW: Importers -->
-      <button id="importSet">⬆️ Import Set</button>
-      <input id="importSetFile" type="file" accept=".md,.txt,text/markdown,text/plain" style="display:none">
-      <button id="importBank">⬆️ Import Bank</button>
-      <input id="importBankFile" type="file" accept=".json,application/json" style="display:none">
+      <input id="txtFile" type="file" accept=".txt,.md" />
+      <button id="loadBtn" class="pill">📂 Load File</button>
+      <button id="exampleBtn" class="pill">✨ Insert Example</button>
     </div>
 
-    <p class="muted" style="margin:8px 0 6px">
-      Paste MCQs (supports <b>bold</b>/<i>italics</i>, headers like “## …”, options like “- A) … / A.”, and <code>Answer:</code> / <code>Explanation:</code>).
-    </p>
-    <textarea id="raw" placeholder="Paste or load your MCQs here…"></textarea>
-
+    <textarea id="raw"></textarea>
     <div class="row" style="margin-top:10px">
-      <button id="cleanBtn">🧽 Clean text</button>
-      <button id="parseBtn" class="primary">▶️ Parse → Start Quiz</button>
-      <span id="parseMsg" class="muted"></span>
+      <button id="cleanBtn" class="pill">🧽 Clean</button>
+      <button id="clearBtn" class="pill">🗑️ Clear box</button>
+      <button id="parseBtn" class="pill">▶️ Parse → Start Quiz</button>
     </div>
-    <div id="errBox" style="display:none;margin-top:10px" class="error"></div>
-  </div></div>
+    <div id="errBox" style="color:red;margin-top:10px"></div>
+  </div>
 
-  <div class="card" id="quizCard" style="display:none"><div class="inner" id="quiz"></div></div>
+  <div class="card" id="quizCard" style="display:none">
+    <div id="quiz"></div>
+  </div>
 
-  <div class="card"><div class="inner">
+  <div class="card">
     <div class="row">
-      <button id="finishBtn" class="primary" disabled>✅ Finish & Score</button>
-      <button id="pdfBtn" disabled>📑 Export PDF</button>
-      <span id="score" class="stats"></span>
+      <button id="finishBtn" class="pill" disabled>✅ Finish & Score</button>
+      <button id="shuffleQ" class="pill">🔀 Shuffle Questions</button>
+      <button id="shuffleO" class="pill">🔁 Shuffle Options</button>
+      <button id="hardReset" class="pill">♻️ Reset</button>
     </div>
-    <div class="row" style="margin-top:10px">
-      <button id="shuffleQ">🔀 Shuffle Questions</button>
-      <button id="shuffleO">🔁 Shuffle Options</button>
-      <button id="hardReset">♻️ Hard Reset</button>
-    </div>
-  </div></div>
+  </div>
 </main>
 
 <script>
-/* =================== State & DOM =================== */
-const rawEl = document.getElementById('raw');
+const rawEl=document.getElementById('raw');
+const quizCard=document.getElementById('quizCard');
+const quizEl=document.getElementById('quiz');
+const scoreEl=document.getElementById('score');
 const txtFile = document.getElementById('txtFile');
 const loadBtn = document.getElementById('loadBtn');
-const exampleBtn = document.getElementById('exampleBtn');
-const cleanBtn = document.getElementById('cleanBtn');
-const parseBtn = document.getElementById('parseBtn');
-const parseMsg = document.getElementById('parseMsg');
-const errBox = document.getElementById('errBox');
-const quizCard = document.getElementById('quizCard');
-const quizEl = document.getElementById('quiz');
-const finishBtn = document.getElementById('finishBtn');
-const pdfBtn = document.getElementById('pdfBtn');
-const scoreEl = document.getElementById('score');
 
-const setTitle = document.getElementById('setTitle');
-const saveSetBtn = document.getElementById('saveSet');
-const savedList = document.getElementById('savedList');
-const deleteSetBtn = document.getElementById('deleteSet');
-const exportSetBtn = document.getElementById('exportSet');
-const exportAllBtn = document.getElementById('exportAll');
-
-// Importers
-const importSetBtn  = document.getElementById('importSet');
-const importSetFile = document.getElementById('importSetFile');
-const importBankBtn = document.getElementById('importBank');
-const importBankFile= document.getElementById('importBankFile');
-
-let QUIZ = [];
-let ANSWERS = {};
-let FINISHED = false;
-
-/* =================== Saved Sets (localStorage) =================== */
-const LS_SETS_KEY = 'mcq-sets-v1';   // map: { title: rawText }
-const LS_LAST_KEY = 'mcq-last';      // last raw text autosave
-
-function getSets(){
-  try { return JSON.parse(localStorage.getItem(LS_SETS_KEY)||'{}') || {}; }
-  catch { return {}; }
-}
+// ---- Saved sets (localStorage) ----
+const LS_SETS_KEY = 'mcq-sets-v1';
+function getSets(){ try { return JSON.parse(localStorage.getItem(LS_SETS_KEY)||'{}')||{}; } catch { return {}; } }
 function putSets(sets){ localStorage.setItem(LS_SETS_KEY, JSON.stringify(sets)); }
 function refreshSavedList(){
+  const sel = document.getElementById('savedList');
+  if (!sel) return;
   const sets = getSets();
   const titles = Object.keys(sets).sort((a,b)=>a.localeCompare(b));
-  const current = savedList.value;
-  savedList.innerHTML = '<option value="">Saved sets…</option>' +
-    titles.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
-  if (current && titles.includes(current)) savedList.value = current;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Saved sets…</option>' +
+                  titles.map(t=>`<option value="${t.replace(/"/g,'&amp;quot;')}">${t}</option>`).join('');
+  if (current && titles.includes(current)) sel.value = current;
 }
-
-// Auto-save textarea (debounced)
-let __saveTimer = null;
-rawEl.addEventListener('input', ()=>{
-  clearTimeout(__saveTimer);
-  __saveTimer = setTimeout(()=>{
-    try { localStorage.setItem(LS_LAST_KEY, rawEl.value||''); } catch {}
-  }, 300);
-});
-// Restore last session text on load
-(function(){
-  try {
-    const last = localStorage.getItem(LS_LAST_KEY);
-    if (last && !rawEl.value) rawEl.value = last;
-  } catch {}
-})();
-
-/* Save / Load / Delete / Export */
-saveSetBtn.onclick = ()=>{
-  const title = (setTitle?.value || '').trim();
-  const text = (rawEl?.value || '').trim();
-  if (!text){ alert('Nothing to save. Paste or load MCQs first.'); return; }
-  if (!title){ alert('Give this set a title first.'); return; }
-  const sets = getSets();
-  if (sets[title] && !confirm(`Replace existing set "${title}"?`)) return;
-  sets[title] = text; putSets(sets); refreshSavedList();
-  savedList.value = title; parseMsg.textContent = `Saved set: ${title}`;
-};
-savedList.onchange = ()=>{
-  const t = savedList.value; if (!t) return;
-  const sets = getSets();
-  if (sets[t]){ rawEl.value = sets[t]; setTitle.value = t; parseMsg.textContent = `Loaded set: ${t}`; }
-};
-deleteSetBtn.onclick = ()=>{
-  const t = savedList?.value || setTitle?.value || '';
-  if (!t){ alert('Select a saved set to delete.'); return; }
-  const sets = getSets();
-  if (!sets[t]){ alert('No such saved set.'); return; }
-  if (!confirm(`Delete saved set "${t}"?`)) return;
-  delete sets[t]; putSets(sets); refreshSavedList(); savedList.value = '';
-  parseMsg.textContent = 'Deleted.';
-};
-function downloadText(filename, text){
-  const blob = new Blob([text], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-}
-function exportSetByTitle(title){
-  const sets = getSets(); const text = sets[title];
-  if (!text){ alert('Select a saved set first.'); return; }
-  downloadText(`${title}.md`, text);
-}
-exportSetBtn.onclick = ()=>{ const t = savedList?.value || setTitle?.value; if(!t){alert('Pick a set first');return;} exportSetByTitle(t); };
-exportAllBtn.onclick = ()=>{
-  const sets = getSets(); const json = JSON.stringify(sets, null, 2);
-  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-  downloadText(`mcq_bank_${stamp}.json`, json);
-};
-
-// Importers
-function inferTitleFrom(name, text) {
-  let base = String(name || '').replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
-  if (base) return base.slice(0, 60);
-  const first = String(text || '').split(/\r?\n/).find(l => l.trim().length > 3);
-  return (first ? first.trim().slice(0, 60) : 'Imported Set');
-}
-importSetBtn.onclick = ()=> importSetFile.click();
-importSetFile.onchange = async (e)=>{
-  const f = e.target.files?.[0]; if(!f) return;
-  const text = await f.text();
-  let title = prompt('Title for this set?', inferTitleFrom(f.name, text));
-  if (!title) return;
-  const sets = getSets();
-  if (sets[title] && !confirm(`Replace existing set "${title}"?`)) return;
-  sets[title] = text; putSets(sets); refreshSavedList();
-  savedList.value = title; setTitle.value = title; rawEl.value = text;
-  parseMsg.textContent = `Imported set: ${title}`;
-  document.getElementById('parseBtn')?.click();
-  e.target.value = '';
-};
-importBankBtn.onclick = ()=> importBankFile.click();
-importBankFile.onchange = async (e)=>{
-  const f = e.target.files?.[0]; if(!f) return;
-  try{
-    const json = JSON.parse(await f.text());
-    if (!json || typeof json !== 'object') throw new Error('Not a JSON object');
-    const sets = getSets(); const titles = Object.keys(json);
-    if (!titles.length){ alert('No sets found in this file.'); e.target.value=''; return; }
-    const overwrite = confirm('Import bank:\nOK = overwrite existing titles\nCancel = only add new ones');
-    let added=0,updated=0,skipped=0;
-    for(const t of titles){
-      const val = json[t]; if(typeof val!=='string'){skipped++;continue;}
-      if(sets[t]){ if(overwrite){sets[t]=val;updated++;} else skipped++; }
-      else { sets[t]=val; added++; }
-    }
-    putSets(sets); refreshSavedList();
-    parseMsg.textContent = `Bank import → added ${added}, updated ${updated}, skipped ${skipped}.`;
-    const first = titles.find(t=>sets[t]); if(first){ savedList.value=first; setTitle.value=first; rawEl.value=sets[first]; }
-  }catch(err){ alert('Import failed: '+(err?.message||err)); }
-  e.target.value='';
-};
 refreshSavedList();
 
-/* =================== Utilities =================== */
-const A = (i)=>String.fromCharCode(65+i);
-function escapeHtml(s){return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-function mdInline(s){
-  s = escapeHtml(String(s||''));
-  s = s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');                    // **bold**
-  s = s.replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1<i>$2</i>'); // *it*
-  s = s.replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1<i>$2</i>');    // _it_
-  s = s.replace(/`([^`]+)`/g,'<code>$1</code>');                  // `code`
-  return s;
-}
-function mdToPlain(s){
-  s = String(s||'');
-  s = s.replace(/\*\*(.+?)\*\*/g,'$1')
-       .replace(/(^|[\s>])\*(?!\s)([^*\n]+?)\*(?=($|[\s<]))/g,'$1$2')
-       .replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1$2')
-       .replace(/`([^`]+)`/g,'$1');
-  return s;
-}
+// ---- Load file into textarea ----
+(function bindFileLoader(){
+  if (!txtFile) return;
 
-/* =================== Normalization =================== */
-function normalizeAll(t){
-  if(!t) return '';
-  const ZW = /[\u200B-\u200D\u2060]/g;
-  t = String(t).replace(/\uFEFF/g,'').replace(ZW,'').replace(/\r\n?/g,'\n').replace(/\u00A0/g,' ');
-  t = t.replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-');
-  t = t.replace(/^\s*(\*{3,}|-{3,}|_{3,})\s*$/gm,'');             // horizontal rules
-  t = t.replace(/^[\s]*[•∙◦·]+\s?/gm,'- ');                       // bullets → "- "
-  t = t.replace(/^\s*(?:-|\*)?\s*(?:\*\*)?\s*\(?\s*([A-Da-d])\s*\)?\s*[\.\):\-]\s+(?=\S)/gm,(_,L)=>`- ${L.toUpperCase()}) `); // options
-  t = t.split('\n').filter(line=>!/^\s*#{1,6}\s+/.test(line)).join('\n'); // drop markdown headings
-  t = t.replace(/^\s*(?:\*\*)?\s*(ans|answer|correct)\s*[:=\-]\s*(.+)$/gmi,(_, __, rest)=>`Answer: ${rest.trim()}`);
-  t = t.replace(/^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.+)$/gmi,(_m,rest)=>`Answer: ${rest.trim()}`);
-  t = t.replace(/^\s*\*\*\s*(\d+\s*[\.\)])\s*(.*?)\s*\*\*\s*$/gm,(_m,num,rest)=>`${num} ${rest}`);
-  t = t.replace(/^\s*\*\*\s*(Q\s*[:\.\)])\s*(.*?)\s*\*\*\s*$/gmi,(_m,q,rest)=>`${q} ${rest}`);
+  async function readPickedFile(file){
+    if (!file) return;
+    try {
+      let text = await file.text();
+      // optional: normalize the content for cleaner parsing
+      text = normalize(text);
+      rawEl.value = text;
+
+      // Try to use filename as the default set title (without extension)
+      const setTitleEl = document.getElementById('setTitle');
+      if (setTitleEl && file.name) {
+        const base = file.name.replace(/\.[^.]+$/, '').replace(/[_\-]+/g, ' ').trim();
+        if (base && !setTitleEl.value) setTitleEl.value = base.slice(0, 60);
+      }
+    } catch (e) {
+      const err = document.getElementById('errBox');
+      if (err) err.textContent = 'Failed to read file: ' + (e?.message || e);
+    }
+  }
+
+  // When user picks a file, read it immediately
+  txtFile.addEventListener('change', (e)=>{
+    const f = e.target.files && e.target.files[0];
+    readPickedFile(f);
+  });
+
+  // Make the 'Load File' button open the file picker (in case user prefers button)
+  if (loadBtn) {
+    loadBtn.onclick = () => txtFile && txtFile.click();
+  }
+})();
+
+// Save / load / delete / export
+(function bindSavedSetButtons(){
+  const setTitle = document.getElementById('setTitle');
+  const savedList = document.getElementById('savedList');
+  const saveBtn   = document.getElementById('saveSet');
+  const delBtn    = document.getElementById('deleteSet');
+  const exportBtn = document.getElementById('exportSet');
+  const exportAll = document.getElementById('exportAll');
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], { type:'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+
+  if (saveBtn) saveBtn.onclick = ()=>{
+    const title = (setTitle?.value||'').trim();
+    const text  = (rawEl?.value||'').trim();
+    if (!text) { alert('Nothing to save'); return; }
+    if (!title){ alert('Enter a title'); return; }
+    const sets = getSets();
+    sets[title] = text;
+    putSets(sets);
+    refreshSavedList();
+    savedList.value = title;
+  };
+
+  if (savedList) savedList.onchange = ()=>{
+    const t = savedList.value;
+    const sets = getSets();
+    if (t && sets[t]){ rawEl.value = sets[t]; setTitle.value = t; }
+  };
+
+  if (delBtn) delBtn.onclick = ()=>{
+    const t = savedList?.value || setTitle?.value || '';
+    if (!t) { alert('Pick a saved set'); return; }
+    const sets = getSets();
+    if (!sets[t]) { alert('No such saved set'); return; }
+    delete sets[t];
+    putSets(sets);
+    refreshSavedList();
+    savedList.value = '';
+  };
+
+  if (exportBtn) exportBtn.onclick = ()=>{
+    const t = savedList?.value || setTitle?.value || '';
+    const sets = getSets();
+    if (!t || !sets[t]) { alert('Pick a saved set'); return; }
+    downloadText(`${t}.md`, sets[t]);
+  };
+
+  if (exportAll) exportAll.onclick = ()=>{
+    const sets = getSets();
+    const json = JSON.stringify(sets, null, 2);
+    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+    downloadText(`mcq_bank_${stamp}.json`, json);
+  };
+})();
+
+const root=document.documentElement;
+const THEME_KEY='mcq-theme';
+if (!localStorage.getItem(THEME_KEY)) { document.documentElement.setAttribute('data-theme','light'); }
+(function initTheme(){
+  const saved=localStorage.getItem(THEME_KEY)||'light';
+  root.setAttribute('data-theme', saved);
+  const btn=document.getElementById('themeToggle');
+  btn.textContent = saved==='light' ? '🌙' : '🌞';
+  btn.onclick = () => {
+    const next = (root.getAttribute('data-theme')==='light') ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem(THEME_KEY, next);
+    btn.textContent = next==='light' ? '🌙' : '🌞';
+  };
+})();
+
+function normalize(text){
+  if (!text) return '';
+  let t = String(text)
+    .replace(/\uFEFF/g,'')                 // BOM
+    .replace(/[\u200B-\u200D\u2060]/g,'')  // zero‑width
+    .replace(/\r\n?/g,'\n')                // CRLF → LF
+    .replace(/\u00A0/g,' ')                // NBSP
+    .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
+    .replace(/[–—]/g,'-')
+    .replace(/^\s*(?:\*{3,}|-{3,}|_{3,})\s*$/gm,''); // horizontal rules
+
+  // Insert newlines BEFORE inline option markers (A) / b. / C: with optional number/list prefix)
+  t = t.replace(
+    /(\S)\s+((?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?[A-Da-d]\)?\s*[\)\.:]\s+(?=\S))/g,
+    '$1\n$2'
+  );
+  // Newlines before Answer/Explanation labels (with possible bold, junk before colon)
+  t = t.replace(
+    /(\S)\s+((?:\*\*)?\s*(?:ans|answer|correct|exp|explanation)\b[^:]*[:=\-]\s*(?=\S))/ig,
+    '$1\n$2'
+  );
+
+  // Collapse trailing spaces and mega blank lines
   t = t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   return t;
 }
 
-/* =================== Split & Parse =================== */
-const RX = {
-  optStart: /^\s*(?:[-–—•]\s*)?(?:\*\*)?\s*([A-D])\s*[\)\.]\s+/i,
-  ansLine:  /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*:/i,
-  expLine:  /^\s*(?:\*\*)?\s*explanation\s*:/i,
-  qStart:   /^\s*(?:\*\*)?\s*(?:\d+\s*[\.\)]|q\s*[:\.\)])\s+/i
-};
-function splitIntoBlocks(t){
-  const lines = t.split('\n'); const blocks = []; let cur = [];
-  const push=()=>{ if(cur.length){ blocks.push(cur.join('\n')); cur=[]; } };
-  for(const L of lines){
-    const s = L.trim();
-    if(!s){ push(); continue; }
-    const isQ = RX.qStart.test(s);
-    const curHasMCQ = cur.some(x=>RX.optStart.test(x)||RX.ansLine.test(x)||RX.expLine.test(x));
-    if(isQ && cur.length && curHasMCQ){ push(); }
-    cur.push(L);
-  }
-  push(); return blocks;
-}
-function normalizeBlockLines(block){
-  const raw = block.split('\n').filter(Boolean);
-  const out=[]; let phase='q';
-  for(const L0 of raw){
-    const L = L0.trim();
-    if(phase==='q'){
-      if(RX.optStart.test(L)){ out.push(L); phase='opts'; }
-      else if(RX.ansLine.test(L) || RX.expLine.test(L)){ out.push(L); phase='post'; }
-      else { if(out.length===0) out.push(L); else out[0]+=' '+L; }
-    } else if(phase==='opts'){
-      if(RX.optStart.test(L) || RX.ansLine.test(L) || RX.expLine.test(L)){ out.push(L); if(!RX.optStart.test(L)) phase='post'; }
-      else { const k=out.length-1; if(k>=0) out[k]+=' '+L; else out.push(L); }
-    } else {
-      if(RX.ansLine.test(L) || RX.expLine.test(L)) out.push(L);
-      else { const k=out.length-1; if(k>=0) out[k]+=' '+L; else out.push(L); }
-    }
-  }
-  return out;
-}
-const optionTextFrom = l => l.replace(RX.optStart,'').trim();
-const payloadAfterColon = l => l.split(/:/).slice(1).join(':').trim();
-function cleanAnswerPayload(p){
-  if (!p) return ''; let s = String(p).trim();
-  s = s.replace(/\*\*/g,'').replace(/__/g,'').replace(/`/g,'');           // md
-  // drop trailing citations/notes like [1], (ref), {note}
-  s = s.replace(/[\(\[\{][^()\[\]{}]*[\)\]\}]\s*$/g, '');
-  let m = s.match(/^[A-Da-d]\s*[\)\.\-]/); if (m) return m[0].trim()[0].toUpperCase();
-  m = s.match(/([A-Da-d])(?:\s*[\*\)\]]*)\s*$/); if (m) return m[1].toUpperCase();
-  m = s.match(/\b([A-Da-d])\b/); if (m) return m[1].toUpperCase();
+// helpers for safe rendering and Markdown inline formatting
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function mdInline(s){
+  s = escapeHtml(String(s||''));
+  s = s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  s = s.replace(/(^|[\s>])_(?!\s)([^_\n]+?)_(?=($|[\s<]))/g,'$1<i>$2</i>');
+  s = s.replace(/`([^`]+)`/g,'<code>$1</code>');
   return s;
 }
-function resolveCorrectIndex(options, rawPayload){
-  if(!options?.length) return -1;
-  let p = String(rawPayload||'').trim().replace(/^[A-Da-d]\s*[\)\.\-]\s*/,'');
-  if(/^[A-Da-d]$/.test(p)){ const idx=p.toUpperCase().charCodeAt(0)-65; return (idx>=0&&idx<options.length)?idx:-1; }
-  const norm = s=>String(s||'').replace(/\s+/g,' ').replace(/[“”]/g,'"').replace(/[‘’]/g,"'").replace(/[–—]/g,'-').trim().toLowerCase();
-  const want = norm(p); let best=-1,score=0;
-  options.forEach((o,i)=>{ const n=norm(o); if(n===want){best=i;score=1e9;return;} if(n.includes(want)||want.includes(n)){ const sc=Math.min(n.length,want.length); if(sc>score){best=i;score=sc;} }});
-  return best;
-}
+
+// Parse
 function parseMCQ(text){
-  const items=[]; const errors=[]; const blocks = splitIntoBlocks(normalizeAll(text));
-  blocks.forEach((b,bi)=>{
-    const lines = normalizeBlockLines(b); if(!lines.length) return;
-    const qIndex = lines.findIndex(s => !(RX.optStart.test(s)||RX.ansLine.test(s)||RX.expLine.test(s)));
-    if(qIndex===-1){ errors.push(`Block ${bi+1}: no question line`); return; }
-    const stem = lines[qIndex].replace(RX.qStart,'').replace(/^\*\*(.+?)\*\*$/,'$1').trim();
-    const optLines = lines.filter(s=>RX.optStart.test(s));
-    if(optLines.length<2){ errors.push(`Block ${bi+1}: need ≥2 options`); return; }
-    const options = optLines.map(optionTextFrom);
-    const aLine = lines.find(s=>RX.ansLine.test(s)); if(!aLine){ errors.push(`Block ${bi+1}: missing Answer:`); return; }
-    let payload = payloadAfterColon(aLine); let explanation='';
-    const inline = payload.split(/(?=Explanation\s*:)/i);
-    if(inline.length>1){ payload = inline[0].trim(); explanation = inline.slice(1).join('').replace(/^Explanation\s*:/i,'').trim(); }
-    if(!explanation){ const eLine = lines.find(s=>RX.expLine.test(s)); if(eLine) explanation = payloadAfterColon(eLine); }
-    payload = cleanAnswerPayload(payload);
-    const correctIndex = resolveCorrectIndex(options,payload);
-    if(correctIndex===-1){ errors.push(`Block ${bi+1}: cannot resolve answer "${payload}"`); return; }
-    items.push({ id:'q'+(items.length+1), stem, options, correctIndex, explanation });
-  });
-  return { items, errors, blocksCount: blocks.length };
-}
-window.parseMCQ = parseMCQ;
+  const T = normalize(text);
+  const blocks = T.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
 
-/* =================== UI =================== */
-function renderQuiz(){
-  quizEl.innerHTML = QUIZ.map((q,idx)=>`
-    <div class="q" data-i="${idx}">
-      <div><b>${idx+1}.</b> ${mdInline(q.stem)}</div>
-      <ul class="opts">
-        ${q.options.map((opt,i)=>{
-          const selected = ANSWERS[idx]===i ? 'checked' : '';
-          const disable = FINISHED ? 'disabled' : '';
-          let cls='opt';
-          if(FINISHED){ if(i===q.correctIndex) cls+=' correct'; else if(ANSWERS[idx]===i) cls+=' wrong'; }
-          return `<li class="${cls}">
-            <label><input type="radio" name="q${idx}" value="${i}" ${selected} ${disable}> ${A(i)}) ${mdInline(opt)}</label>
-          </li>`;
-        }).join('')}
-      </ul>
-      ${FINISHED && q.explanation ? `<div class="muted"><b>Explanation:</b> ${mdInline(q.explanation)}</div>` : ''}
-    </div>
-  `).join('');
+  // Option lines like: "- A) foo", "a) bar", "B. baz", "(c) qux", "2) d: quux"
+  const OPT_RE = /^\s*(?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?([A-Da-d])\)?\s*[\)\.:\-]\s*(.+)$/;
+  // Answer labels with bold/noise before colon: "**Answer**:", "Ans -", "correct:"
+  const ANS_RE = /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.+)$/i;
+  // Explanation labels (allow "exp:")
+  const EXP_RE = /^\s*(?:\*\*)?\s*(?:exp|explanation)\b[^:]*[:=\-]\s*(.+)$/i;
 
-  quizEl.querySelectorAll('input[type="radio"]').forEach(inp=>{
-    inp.onchange = () => {
-      const p = inp.closest('.q'); const idx = Number(p.dataset.i);
-      ANSWERS[idx] = Number(inp.value);
-      localStorage.setItem('mcq-answers', JSON.stringify(ANSWERS));
-      updateScorePreview();
-    };
-  });
-  updateScorePreview();
-}
-function updateScorePreview(){
-  if(!QUIZ.length){ scoreEl.textContent = ''; return; }
-  let c=0,w=0,s=0;
-  QUIZ.forEach((q,i)=>{ const a = ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
-  scoreEl.textContent = `Answered: ${QUIZ.length - s}/${QUIZ.length} • Correct: ${c} • Wrong: ${w}`;
-}
-function finishAndScore(){ FINISHED = true; renderQuiz(); finishBtn.disabled = true; pdfBtn.disabled = false; }
-function exportPdf(){
-  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  const margin = 40; const pageWidth = doc.internal.pageSize.getWidth();
-  const head = () => { doc.setFontSize(14); doc.text('MCQ Results', margin, 40); doc.setFontSize(10); doc.text('Generated: ' + new Date().toLocaleString(), margin, 58); };
-  head();
-  const rows = QUIZ.map((q,i)=>{
-    const yourIdx = ANSWERS[i];
-    const your = (yourIdx != null) ? `${A(yourIdx)}) ${mdToPlain(q.options[yourIdx])}` : '—';
-    const corr = `${A(q.correctIndex)}) ${mdToPlain(q.options[q.correctIndex])}`;
-    const res  = (yourIdx == null) ? '—' : (yourIdx === q.correctIndex ? 'Correct' : 'Wrong');
-    const optionsText = q.options.map((o,k)=>`${A(k)}) ${mdToPlain(o)}`).join('\n');
-    const block =
-`${i+1}. ${mdToPlain(q.stem)}
-${optionsText}
-Your: ${your}
-Correct: ${corr}
-Result: ${res}${q.explanation ? `\nExplanation: ${mdToPlain(q.explanation)}` : ''}`;
-    return [block];
-  });
-  doc.autoTable({
-    startY: 80, head: [['Questions, answers & explanations']], body: rows, theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 6, overflow: 'linebreak' },
-    headStyles: { fillColor: [31,111,235], textColor: 255, halign: 'left' },
-    margin: { left: margin, right: margin },
-    columnStyles: { 0: { cellWidth: pageWidth - margin * 2 } },
-    didDrawPage: () => head()
-  });
-  let c=0,w=0,s=0; QUIZ.forEach((q,i)=>{ const a=ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
-  const y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 80) + 24;
-  doc.setFontSize(12); doc.text(`Summary: Correct ${c} / ${QUIZ.length} • Wrong ${w} • Skipped ${s}`, margin, y);
-  doc.save('mcq-results.pdf');
-}
+  // Remove common leading "Q#/Q./1)" and markdown heading hashes
+  const STRIP_Q_PREFIX = (s) => String(s)
+      .replace(/^\s*#{1,6}\s*/, '')
+      .replace(/^\s*(?:Q\s*\d*|Q|(\d+))\s*[\.\):]\s*/i, '')
+      .trim();
 
-/* =================== Wire up =================== */
-loadBtn.onclick = async ()=>{
-  const f = txtFile.files?.[0]; if(!f){ alert('Choose a file first'); return; }
-  let t = await f.text();
-  if(f.name.endsWith('.json')){ try{ const obj=JSON.parse(t); if(Array.isArray(obj)) t=obj.join('\n'); else if(obj && typeof obj==='object') t=Object.values(obj).join('\n'); }catch{} }
-  if(f.name.endsWith('.csv')){ t = t.replace(/\r\n?/g,'\n'); }
-  rawEl.value = t; parseMsg.textContent = `Loaded ${f.name} (${(f.size/1024).toFixed(0)} KB)`;
-};
-exampleBtn.onclick = ()=>{
-  rawEl.value = `**1)** Which hormone is primarily secreted by lactotropes in the anterior pituitary?
-- A) Growth Hormone
-- B) Thyroid-Stimulating Hormone
-- C) Prolactin
-- D) ACTH
-Answer: C
-Explanation: **Prolactin** is synthesized and secreted by lactotropes.
+  const items = [];
 
-**2)** Which systemic symptom profile is typical?
-- A) Marked night sweats and high CRP
-- B) Fatigue and weight loss, especially with pancreatic exocrine failure
-- C) Polyarthritis with morning stiffness >1 hour
-- D) Severe photosensitivity and oral ulcers
-Answer: B
-Explanation: Fatigue and weight loss may occur; pancreatic insufficiency can contribute.`;
-  parseMsg.textContent = 'Example inserted';
-};
-cleanBtn.onclick = ()=>{ rawEl.value = normalizeAll(rawEl.value); parseMsg.textContent = 'Cleaned punctuation, bullets & Markdown'; errBox.style.display = 'none'; errBox.textContent = ''; };
-parseBtn.onclick = (e)=>{
-  e.preventDefault(); FINISHED = false; ANSWERS = {}; try{ localStorage.removeItem('mcq-answers'); }catch{}
-  errBox.style.display='none'; errBox.textContent='';
-  const txt = normalizeAll(rawEl.value || ''); if(!txt){ alert('Paste your MCQs or load a file first'); return; }
-  const { items, errors, blocksCount } = parseMCQ(txt);
-  QUIZ = items; window.QUIZ = items;
-  if(errors.length){ errBox.style.display='block'; errBox.innerHTML = '<b>Parsing issues:</b><br>' + errors.map(e=>'• '+e).join('<br>'); }
-  parseMsg.textContent = `Parsed ${items.length} question(s) from ${blocksCount} block(s).`;
-  if(!QUIZ.length){ quizCard.style.display='none'; finishBtn.disabled=true; pdfBtn.disabled=true; scoreEl.textContent=''; return; }
-  quizCard.style.display=''; finishBtn.disabled=false; pdfBtn.disabled=true; renderQuiz();
-  // Auto-time per question: 1 minute each, minimum 1 minute
-  const perQ = Math.max(1, QUIZ.length); mins.value = perQ; __resetTimer(); __startTimer(perQ);
-};
-finishBtn.onclick = finishAndScore;
-pdfBtn.onclick = exportPdf;
-
-function fyShuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
-document.getElementById('shuffleQ').onclick = ()=>{ if(!QUIZ.length) return alert('Parse first'); fyShuffle(QUIZ); ANSWERS={}; renderQuiz(); };
-document.getElementById('shuffleO').onclick = ()=>{ if(!QUIZ.length) return alert('Parse first'); QUIZ.forEach(q=>{ const order=q.options.map((_,i)=>i); fyShuffle(order); q.options=order.map(i=>q.options[i]); q.correctIndex=order.indexOf(q.correctIndex); }); ANSWERS={}; renderQuiz(); };
-document.getElementById('hardReset').onclick = ()=>{ try{localStorage.removeItem('mcq-answers');}catch{} QUIZ=[]; ANSWERS={}; FINISHED=false; quizCard.style.display='none'; finishBtn.disabled=true; pdfBtn.disabled=true; scoreEl.textContent=''; errBox.style.display='none'; errBox.textContent=''; parseMsg.textContent=''; };
-
-/* =================== Timer =================== */
-const mins = document.getElementById('mins');
-const tDisp = document.getElementById('tDisp');
-let deadline = 0, tick = null;
-const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.max(0,Math.floor(s%60))).padStart(2,'0')}`;
-const secsLeft = ()=> Math.max(0, Math.ceil((deadline - Date.now())/1000));
-function __startTimer(m){
-  const minutes = Math.max(0, Number.isFinite(+m) ? +m : 0);
-  if (!deadline || secsLeft() === 0) deadline = Date.now() + minutes * 60 * 1000;
-  tDisp.textContent = fmt(minutes*60);
-  if (tick) clearInterval(tick);
-  tick = setInterval(() => {
-    const left = secsLeft(); tDisp.textContent = fmt(left);
-    if (left <= 0) { clearInterval(tick); tick = null; try { finishAndScore(); } catch {} }
-  }, 250);
-}
-function __pauseTimer(){ if (tick) clearInterval(tick); tick = null; }
-function __resetTimer(){ __pauseTimer(); deadline = 0; tDisp.textContent = fmt((parseFloat(mins.value||20))*60); }
-document.getElementById('tStart').onclick = () => __startTimer(parseFloat(mins.value || 20));
-document.getElementById('tPause').onclick = __pauseTimer;
-document.getElementById('tReset').onclick = __resetTimer;
-tDisp.textContent = fmt((parseFloat(mins.value||20))*60);
-
-/* =================== Theme & Text color =================== */
-(function(){
-  const root = document.documentElement;
-  const THEME_KEY='mcq-theme', INK_PREFIX='mcq-ink-';
-  const themeBtn = document.getElementById('themeToggle');
-  const picker = document.getElementById('inkPicker');
-  const reset = document.getElementById('inkReset');
-
-  const savedTheme = localStorage.getItem(THEME_KEY);
-  if (!root.dataset.theme) root.dataset.theme = savedTheme || 'light';
-  themeBtn.textContent = (root.dataset.theme === 'light') ? '🌞' : '🌙';
-
-  function getInkKey(){ return INK_PREFIX + root.dataset.theme; }
-  function toColorInputValue(c){ if(!c) return '#000000'; if(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c)) return c;
-    const m = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
-    if (m){ const h=(n)=>(+n).toString(16).padStart(2,'0'); return '#'+h(m[1])+h(m[2])+h(m[3]); } return '#000000'; }
-  function applySavedInk(){
-    const val = localStorage.getItem(getInkKey());
-    if (val) root.style.setProperty('--ink-user', val);
-    else root.style.removeProperty('--ink-user');
-    picker.value = toColorInputValue(val || (root.dataset.theme==='light' ? '#101828' : '#e6e6e6'));
-  }
-  themeBtn.onclick = ()=>{ const next = (root.dataset.theme === 'light') ? 'dark' : 'light'; root.dataset.theme = next; localStorage.setItem(THEME_KEY, next); themeBtn.textContent = (next === 'light') ? '🌞' : '🌙'; applySavedInk(); };
-  picker.oninput = ()=>{ const val = picker.value; root.style.setProperty('--ink-user', val); localStorage.setItem(getInkKey(), val); };
-  reset.onclick = ()=>{ localStorage.removeItem(getInkKey()); root.style.removeProperty('--ink-user'); applySavedInk(); };
-  applySavedInk();
-
-  // PWA install
-  let deferredPrompt=null; const installBtn=document.getElementById('installBtn');
-  window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; installBtn.style.display=''; });
-  installBtn.onclick = async ()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); try{const {outcome}=await deferredPrompt.userChoice; if(outcome==='accepted') installBtn.style.display='none';}catch{} deferredPrompt=null; };
-  window.addEventListener('appinstalled',()=> installBtn.style.display='none');
-})();
-
-/* =================== SW registration =================== */
-if ('serviceWorker' in navigator) {
-  (function(){
-    if (!('serviceWorker' in navigator)) return;
-
-    // Register SW
-    navigator.serviceWorker.register('./sw.js');
-
-    // Poll for updates occasionally and on tab focus
-    async function checkForUpdate() {
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) await reg.update();
-      } catch {}
+  for (const rawBlock of blocks){
+    // Break into lines; if a single long line, try to split by option markers again
+    let lines = rawBlock.split('\n').map(l=>l.trim()).filter(Boolean);
+    if (lines.length === 1){
+      const para = lines[0].replace(/\s{2,}/g,' ');
+      const split = para.split(/\s(?=(?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?[A-Da-d]\)?\s*[\)\.:]\s)/);
+      if (split.length > 1) lines = [ split.shift(), ...split ];
     }
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') checkForUpdate();
-    });
-    setInterval(checkForUpdate, 60_000); // every minute
 
-    // Listen for messages from SW
-    navigator.serviceWorker.addEventListener('message', (e) => {
-      if (e.data?.type === 'SW_ACTIVE') {
-        // New SW took control → prompt user to refresh
-        const btn = document.createElement('button');
-        btn.textContent = 'New version available — Refresh';
-        btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:9999;padding:10px 14px;border:1px solid #2a2e3a;border-radius:8px;background:#0f1219;color:#e6e6e6;cursor:pointer';
-        btn.onclick = () => location.reload();
-        document.body.appendChild(btn);
+    // 1) Build stem until first option/label line
+    const stemParts = [];
+    while (lines.length && !OPT_RE.test(lines[0]) && !ANS_RE.test(lines[0]) && !EXP_RE.test(lines[0])){
+      stemParts.push(STRIP_Q_PREFIX(lines.shift()));
+    }
+    let stem = stemParts.join(' ').trim();
+
+    // 2) Options (A–D); keep order
+    const options = [];
+    while (lines.length && OPT_RE.test(lines[0])){
+      const m = lines.shift().match(OPT_RE);
+      options.push((m && m[2] ? m[2] : '').trim());
+    }
+
+    // 3) Answer + Explanation (any order, can span paragraphs)
+    let ansPayload = '', explanation = '';
+    while (lines.length){
+      const L = lines.shift();
+      let m;
+      if ((m = L.match(ANS_RE))){ ansPayload = (m[1]||'').trim(); continue; }
+      if ((m = L.match(EXP_RE))){ explanation = (m[1]||'').trim(); continue; }
+      // Continuations
+      if (explanation){ explanation += ' ' + L; }
+      else if (options.length === 0){ stem += (stem ? ' ' : '') + STRIP_Q_PREFIX(L); }
+    }
+
+    // Rescue: if stem missing, rebuild from non-option/label content
+    if (!stem){
+      const rescue = rawBlock.split('\n')
+        .filter(line => !OPT_RE.test(line) && !ANS_RE.test(line) && !EXP_RE.test(line))
+        .map(STRIP_Q_PREFIX).join(' ').trim();
+      stem = rescue;
+    }
+
+    // Need at least 2 options + non-empty stem
+    if (!stem || options.length < 2) continue;
+
+    // Resolve correct option index
+    let correctIndex = -1;
+    if (ansPayload){
+      const letter = ansPayload.match(/\b([A-Da-d])\b/);
+      if (letter){ correctIndex = letter[1].toUpperCase().charCodeAt(0) - 65; }
+      if (correctIndex < 0){
+        const norm = s => String(s).toLowerCase().replace(/\s+/g,' ').trim();
+        const want = norm(ansPayload.replace(OPT_RE,'$2'));
+        options.forEach((o,i) => { if (norm(o) === want) correctIndex = i; });
+        if (correctIndex < 0){
+          options.forEach((o,i) => { const n=norm(o); if (n.includes(want) || want.includes(n)) correctIndex = i; });
+        }
       }
-    });
-  })();
+    }
+    if (correctIndex < 0) correctIndex = 0; // safe default when answer is missing
+
+    items.push({ stem, options, correctIndex, explanation });
+  }
+
+  return items;
 }
+
+function renderQuiz(){
+  quizEl.innerHTML=QUIZ.map((q,i)=>`
+    <div class="q">
+      <div>${i+1}. ${mdInline(q.stem)}</div>
+      <ul class="opts">
+        ${q.options.map((o,j)=>{
+          let cls="opt";
+          if(FINISHED){ if(j===q.correctIndex) cls+=" correct"; else if(ANSWERS[i]===j) cls+=" wrong"; }
+          return `<li class="${cls}">
+            <label><input type="radio" name="q${i}" value="${j}" ${ANSWERS[i]===j?"checked":""} ${FINISHED?"disabled":""}>
+            ${String.fromCharCode(65+j)}) ${mdInline(o)}</label>
+          </li>`;
+        }).join("")}
+      </ul>
+      ${FINISHED?`<div><b>Explanation:</b> ${mdInline(q.explanation||"")}</div>`:""}
+    </div>
+  `).join("");
+  quizEl.querySelectorAll('input[type="radio"]').forEach(inp=>{
+    inp.onchange=()=>{ const idx=+inp.name.replace("q",""); ANSWERS[idx]=+inp.value; updateScore(); };
+  });
+}
+function updateScore(){
+  let c=0,w=0,s=0;
+  QUIZ.forEach((q,i)=>{ const a=ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
+  scoreEl.textContent=`Answered: ${QUIZ.length-s}/${QUIZ.length} • Correct: ${c} • Wrong: ${w}`;
+}
+
+// UI
+document.getElementById('parseBtn').onclick=()=>{
+  const err = document.getElementById('errBox');
+  err.textContent = '';
+  QUIZ = parseMCQ(rawEl.value||"");
+  if (!QUIZ.length){
+    err.textContent = "Parsing failed. Try: ensure options are labelled A)/B)/C)/D) and there is an Answer:. Bold/paragraph formats are supported—if this still fails, paste one sample here and I'll tune it.";
+    quizCard.style.display="none";
+    scoreEl.textContent="";
+    return;
+  }
+
+  // Enable Finish button and auto-start timer (1 min per question, min 1)
+  const finishBtnEl = document.getElementById('finishBtn');
+  if (finishBtnEl) finishBtnEl.disabled = false;
+
+  const perQ = Math.max(1, QUIZ.length);
+  const minsInput = document.getElementById('mins');
+  if (minsInput) minsInput.value = perQ;
+  try { startTimer(perQ); } catch(e){}
+
+  quizCard.style.display="block";
+  FINISHED=false; ANSWERS={};
+  renderQuiz(); updateScore();
+};
+document.getElementById('finishBtn').onclick=()=>{FINISHED=true; renderQuiz();};
+document.getElementById('shuffleQ').onclick=()=>{QUIZ.sort(()=>Math.random()-.5); renderQuiz();};
+document.getElementById('shuffleO').onclick=()=>{QUIZ.forEach(q=>{q.options.sort(()=>Math.random()-.5)}); renderQuiz();};
+document.getElementById('hardReset').onclick=()=>{QUIZ=[];ANSWERS={};FINISHED=false;quizCard.style.display="none";scoreEl.textContent="";};
+document.getElementById('exampleBtn').onclick=()=>{rawEl.value="Q1. Example question?\nA) One\nB) Two\nC) Three\nD) Four\nAnswer: B\nExplanation: Demo";};
+document.getElementById('cleanBtn').onclick=()=>{rawEl.value=normalize(rawEl.value);};
+document.getElementById('clearBtn').onclick=()=>{ rawEl.value=''; rawEl.focus(); };
+
+// Timer
+const mins=document.getElementById('mins'),tDisp=document.getElementById('tDisp'); let tick=null,deadline=0;
+const fmt=s=>{ const ss=Math.max(0, Math.floor(s)); return `${String(Math.floor(ss/60)).padStart(2,'0')}:${String(ss%60).padStart(2,'0')}`; };
+function startTimer(m){deadline=Date.now()+m*60*1000;if(tick)clearInterval(tick);tick=setInterval(()=>{let s=Math.max(0,Math.ceil((deadline-Date.now())/1000));tDisp.textContent=fmt(s);if(s<=0){clearInterval(tick);}},1000);}
+document.getElementById('tStart').onclick=()=>startTimer(+mins.value||20);
+document.getElementById('tPause').onclick=()=>clearInterval(tick);
+document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textContent=fmt((+mins.value||20)*60); try{ updateScore(); }catch{};};
 </script>
+
 </body>
 </html>
