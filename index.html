@@ -130,6 +130,11 @@ const scoreEl=document.getElementById('score');
 const txtFile = document.getElementById('txtFile');
 const loadBtn = document.getElementById('loadBtn');
 
+// ---- Global quiz state ----
+let QUIZ = [];
+let ANSWERS = {};
+let FINISHED = false;
+
 // ---- Saved sets (localStorage) ----
 const LS_SETS_KEY = 'mcq-sets-v1';
 function getSets(){ try { return JSON.parse(localStorage.getItem(LS_SETS_KEY)||'{}')||{}; } catch { return {}; } }
@@ -282,6 +287,10 @@ function normalize(text){
     '$1\n$2'
   );
 
+  // If "Answer:" is followed by a bare letter stuck to the same line without space (rare OCR),
+  // add a space so our regex picks it up.
+  t = t.replace(/(answer\b[^:]*[:=\-])([A-Da-d])\b/ig, '$1 $2');
+
   // Collapse trailing spaces and mega blank lines
   t = t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   return t;
@@ -299,13 +308,14 @@ function mdInline(s){
 
 // Parse
 function parseMCQ(text){
+  window.__parseErrors = [];
   const T = normalize(text);
   const blocks = T.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
 
   // Option lines like: "- A) foo", "a) bar", "B. baz", "(c) qux", "2) d: quux"
   const OPT_RE = /^\s*(?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?([A-Da-d])\)?\s*[\)\.:\-]\s*(.+)$/;
   // Answer labels with bold/noise before colon: "**Answer**:", "Ans -", "correct:"
-  const ANS_RE = /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.+)$/i;
+  const ANS_RE = /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.*)$/i;
   // Explanation labels (allow "exp:")
   const EXP_RE = /^\s*(?:\*\*)?\s*(?:exp|explanation)\b[^:]*[:=\-]\s*(.+)$/i;
 
@@ -443,14 +453,67 @@ function parseMCQ(text){
 
     // 3) Answer + Explanation (any order, can span paragraphs)
     let ansPayload = '', explanation = '';
+    let awaitingAnswerContinuation = false;
     while (lines.length){
       const L = lines.shift();
       let m;
-      if ((m = L.match(ANS_RE))){ ansPayload = (m[1]||'').trim(); continue; }
-      if ((m = L.match(EXP_RE))){ explanation = (m[1]||'').trim(); continue; }
-      // Continuations
-      if (explanation){ explanation += ' ' + L; }
-      else if (options.length === 0){ stem += (stem ? ' ' : '') + STRIP_Q_PREFIX(L); }
+
+      // Answer label
+      if ((m = L.match(ANS_RE))){
+        ansPayload = (m[1] ?? '').trim();
+
+        // If payload is empty, try to read from the very next line(s)
+        if (!ansPayload && lines.length){
+          const peek = (s) => String(s || '').trim();
+          let nxt = peek(lines[0]);
+
+          // Case 1: next line is a bare letter like "B" or "(b)" or "B)" etc.
+          let mm = nxt.match(/^\s*\(?\s*([A-Da-d])\s*\)?\s*[\)\.:\-]?\s*$/);
+          if (mm){
+            ansPayload = mm[1].toUpperCase();
+            lines.shift(); // consume the line
+            continue;
+          }
+
+          // Case 2: next line is a full option line, e.g. "- B) Glucocorticoids"
+          mm = nxt.match(OPT_RE);
+          if (mm){
+            // Prefer the option LETTER if present; otherwise the option text for fuzzy match
+            ansPayload = (mm[1] ? mm[1].toUpperCase() : (mm[2] || '')).trim();
+            lines.shift(); // consume the line
+            continue;
+          }
+
+          // Case 3: next line is free text (e.g., the exact option phrase)
+          if (nxt){
+            ansPayload = nxt;
+            lines.shift();
+            continue;
+          }
+        }
+        // If we had non-empty payload, proceed
+        continue;
+      }
+
+      // Explanation label
+      if ((m = L.match(EXP_RE))){
+        explanation = (m[1] || '').trim();
+        // absorb following free-text lines into explanation until another label is hit
+        while (lines.length && !ANS_RE.test(lines[0]) && !OPT_RE.test(lines[0])){
+          const cont = lines[0].trim();
+          if (cont) { explanation += (explanation ? ' ' : '') + cont; }
+          lines.shift();
+        }
+        continue;
+      }
+
+      // Continuations:
+      if (explanation){
+        explanation += ' ' + L;
+      } else if (options.length === 0){
+        // If options were never captured (rare paragraph style), keep extending stem
+        stem += (stem ? ' ' : '') + STRIP_Q_PREFIX(L);
+      }
     }
 
     // Rescue: if stem missing, rebuild from non-option/label content
@@ -469,13 +532,29 @@ function parseMCQ(text){
     if (ansPayload){
       let payload = ansPayload;
       payload = cleanAnswerPayload(payload);
-      correctIndex = resolveCorrectIndex(options, payload);
+      correctIndex = resolveCorrectIndex(options, /^[A-Da-d]$/.test(payload) ? payload.toUpperCase() : payload);
     }
-    if (correctIndex < 0) correctIndex = 0; // safe default when answer is missing
+    if (correctIndex < 0) {
+      // Do NOT default to A. Surface an error and skip this item.
+      const previewStem = (stem || '').slice(0, 80);
+      const previewAns  = (ansPayload || '').slice(0, 40);
+      console.warn('Answer could not be resolved for:', previewStem, 'payload:', previewAns);
+      try {
+        (window.__parseErrors ||= []).push(`Could not resolve answer for: "${previewStem}" (Answer: ${previewAns || '—'})`);
+      } catch {}
+      continue;
+    }
 
     items.push({ stem, options, correctIndex, explanation });
   }
 
+  try {
+    const eb = document.getElementById('errBox');
+    if (eb && window.__parseErrors.length) {
+      eb.style.color = 'red';
+      eb.innerHTML = '<b>Parsing issues:</b><br>' + window.__parseErrors.map(e => '• ' + e).join('<br>');
+    }
+  } catch {}
   return items;
 }
 
@@ -511,8 +590,15 @@ document.getElementById('parseBtn').onclick=()=>{
   const err = document.getElementById('errBox');
   err.textContent = '';
   QUIZ = parseMCQ(rawEl.value||"");
+  // Show errBox if errors were collected
+  const eb = document.getElementById('errBox');
+  if (eb && window.__parseErrors && window.__parseErrors.length) {
+    eb.style.display = 'block';
+  }
   if (!QUIZ.length){
-    err.textContent = "Parsing failed. Try: ensure options are labelled A)/B)/C)/D) and there is an Answer:. Bold/paragraph formats are supported—if this still fails, paste one sample here and I'll tune it.";
+    if (!window.__parseErrors || !window.__parseErrors.length) {
+      err.textContent = "Parsing failed. Ensure options are A)/B)/C)/D) and include an Answer:. If this still fails, paste one sample and I'll tune it.";
+    }
     quizCard.style.display="none";
     scoreEl.textContent="";
     return;
@@ -540,8 +626,40 @@ document.getElementById('finishBtn').onclick = () => {
   FINISHED = true;
   renderQuiz();
 };
-document.getElementById('shuffleQ').onclick=()=>{QUIZ.sort(()=>Math.random()-.5); renderQuiz();};
-document.getElementById('shuffleO').onclick=()=>{QUIZ.forEach(q=>{q.options.sort(()=>Math.random()-.5)}); renderQuiz();};
+document.getElementById('shuffleQ').onclick = () => {
+  if (!QUIZ.length) return;
+  // Fisher–Yates
+  for (let i = QUIZ.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [QUIZ[i], QUIZ[j]] = [QUIZ[j], QUIZ[i]];
+  }
+  // Clear previous picks because indices changed
+  ANSWERS = {};
+  FINISHED = false;
+  renderQuiz();
+  updateScore();
+};
+
+document.getElementById('shuffleO').onclick = () => {
+  if (!QUIZ.length) return;
+  QUIZ.forEach(q => {
+    const order = q.options.map((_, idx) => idx);
+    // Fisher–Yates on the index order
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    // Reorder options using the shuffled indices
+    q.options = order.map(idx => q.options[idx]);
+    // Update the correctIndex to the new position of the former correct option
+    q.correctIndex = order.indexOf(q.correctIndex);
+  });
+  // Clear any previous selections since option positions changed
+  ANSWERS = {};
+  FINISHED = false;
+  renderQuiz();
+  updateScore();
+};
 document.getElementById('hardReset').onclick=()=>{QUIZ=[];ANSWERS={};FINISHED=false;quizCard.style.display="none";scoreEl.textContent="";};
 document.getElementById('exampleBtn').onclick=()=>{rawEl.value="Q1. Example question?\nA) One\nB) Two\nC) Three\nD) Four\nAnswer: B\nExplanation: Demo";};
 document.getElementById('cleanBtn').onclick=()=>{rawEl.value=normalize(rawEl.value);};
