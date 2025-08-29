@@ -1,101 +1,144 @@
-/* MCQ Quiz PWA Service Worker — auto update, no version bump */
+/* MCQ Quiz PWA — modern service worker (no manual version bumps) */
 
-const CACHE = 'mcq-quiz';                 // single stable cache name
-const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
+const CACHE_NAME = 'mcq-quiz-cache';
+const CORE_ASSETS = [
+  './',               // start URL
+  './index.html',     // app shell (HTML)
+  './manifest.json',  // PWA manifest
   './favicon.png',
-  './logo 2.png',
   './mcq icon.png',
+  './logo 2.png',
   './apple-touch-icon.png',
   './screenshot1.png'
 ];
 
-// Precache the app shell (bypass HTTP cache to avoid stale installs)
-self.addEventListener('install', event => {
+// ---- Install: precache core shell ----
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then(async cache => {
-      await Promise.all(
-        ASSETS.map(url =>
-          fetch(url, { cache: 'reload' }).then(res => cache.put(url, res))
-        )
-      );
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
   );
-  self.skipWaiting(); // let the new SW take control ASAP
+  self.skipWaiting(); // be ready to activate immediately
 });
 
-// Claim clients immediately on activation
-self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    // Optional: remove old caches from previous versioned schemes
-    const keys = await caches.keys();
-    await Promise.all(
-      keys
-        .filter(k => k !== CACHE && k.startsWith('mcq-quiz-'))
-        .map(k => caches.delete(k))
-    );
-    await self.clients.claim();
-    // Tell pages a new SW is active (so they can prompt to refresh)
-    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clients) client.postMessage({ type: 'SW_ACTIVE' });
-  })());
+// ---- Activate: claim clients & tidy old caches if naming changes later ----
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(
+        names
+          .filter((n) => n !== CACHE_NAME && n.startsWith('mcq-quiz'))
+          .map((n) => caches.delete(n))
+      );
+      // Enable navigation preload (faster first paint) if supported
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable();
+      }
+      await self.clients.claim();
+    })()
+  );
 });
 
-// Fetch strategy:
-// - Navigations (HTML): network-first → cache fallback (offline safe)
-// - Same-origin GET assets: stale-while-revalidate
-self.addEventListener('fetch', event => {
+// ---- Helpers ----
+
+// cache-first but refresh in the background
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request).then((networkResponse) => {
+    // Only cache same-origin, successful GETs
+    try {
+      const url = new URL(request.url);
+      if (url.origin === self.location.origin && networkResponse && networkResponse.ok) {
+        cache.put(request, networkResponse.clone());
+      }
+    } catch {}
+    return networkResponse;
+  }).catch(() => null);
+
+  // Return cached immediately if present; otherwise wait for network
+  return cached || fetchPromise || new Response('Offline', { status: 503 });
+}
+
+// network-first for navigations (HTML). Fallback to cached index on failure.
+async function networkFirstNavigation(event) {
+  // Use navigation preload response if available
+  const preload = event.preloadResponse ? await event.preloadResponse : null;
+  if (preload) return preload;
+
+  try {
+    const fresh = await fetch(event.request, { cache: 'no-store' });
+    // Update the cached index so offline is fresh next time
+    const cache = await caches.open(CACHE_NAME);
+    cache.put('./index.html', fresh.clone());
+    return fresh;
+  } catch {
+    const cachedIndex = await caches.match('./index.html');
+    return cachedIndex || new Response('Offline', { status: 503 });
+  }
+}
+
+// Optional: small cache guard (evict LRU-ish by just clearing extras)
+const MAX_ENTRIES = 200;
+async function enforceCacheLimit() {
+  const cache = await caches.open(CACHE_NAME);
+  const keys = await cache.keys();
+  if (keys.length > MAX_ENTRIES) {
+    // Delete the oldest N entries (front of keys array is oldest in most browsers)
+    await Promise.all(keys.slice(0, keys.length - MAX_ENTRIES).map((k) => cache.delete(k)));
+  }
+}
+
+// ---- Fetch strategy routing ----
+self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
   const sameOrigin = url.origin === self.location.origin;
 
-  const isNavigation =
-    req.mode === 'navigate' ||
-    req.destination === 'document' ||
-    (sameOrigin && url.pathname.endsWith('.html'));
-
-  if (isNavigation) {
-    event.respondWith((async () => {
-      try {
-        const fresh = await fetch(req, { cache: 'no-store' });
-        const cache = await caches.open(CACHE);
-        // Always keep index.html fresh
-        cache.put('./index.html', fresh.clone());
-        return fresh;
-      } catch {
-        const cached = await caches.match('./index.html');
-        return cached || new Response('Offline', { status: 503 });
-      }
-    })());
+  // Top-level navigations / HTML → network-first
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    event.respondWith(
+      (async () => {
+        const res = await networkFirstNavigation(event);
+        // tidy cache occasionally without blocking response
+        enforceCacheLimit().catch(()=>{});
+        return res;
+      })()
+    );
     return;
   }
 
+  // Same-origin static assets → stale-while-revalidate
   if (sameOrigin) {
-    // stale-while-revalidate
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE);
-      const cached = await cache.match(req);
-      const networkFetch = fetch(req).then(res => {
-        if (res && res.ok) cache.put(req, res.clone());
+    event.respondWith(
+      (async () => {
+        const res = await staleWhileRevalidate(req);
+        enforceCacheLimit().catch(()=>{});
         return res;
-      }).catch(() => null);
-
-      // Serve cached immediately if present, update in background
-      if (cached) {
-        event.waitUntil(networkFetch);
-        return cached;
-      }
-      // No cache → wait for network
-      return (await networkFetch) || new Response('Offline', { status: 503 });
-    })());
+      })()
+    );
+    return;
   }
+
+  // Cross-origin: try network, fall back to cache if we happened to have it
+  event.respondWith(
+    (async () => {
+      try {
+        return await fetch(req);
+      } catch {
+        const cached = await caches.match(req);
+        return cached || new Response('Offline', { status: 503 });
+      }
+    })()
+  );
 });
 
-// Let the page ask the SW to take over immediately after update
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+// ---- Messages from page ----
+// Allow page to request immediate activation after an update
+self.addEventListener('message', (event) => {
+  const data = event.data || {};
+  if (data.type === 'SKIP_WAITING') self.skipWaiting();
+  if (data.type === 'PING') event.source?.postMessage({ type: 'PONG' });
 });
