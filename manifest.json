@@ -8,7 +8,7 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1f6feb",
-  "orientation": "portrait",
+  "orientation": "any",
   "icons": [
     { "src": "mcq icon.png", "sizes": "192x192", "type": "image/png" },
     { "src": "logo 2.png",   "sizes": "512x512", "type": "image/png" },
