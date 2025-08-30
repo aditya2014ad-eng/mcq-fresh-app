@@ -1,69 +1,89 @@
-// sw.js
-const CACHE_VERSION = 'v7';                        // ← bump when you change files
-const STATIC_CACHE  = `static-${CACHE_VERSION}`;
-const STATIC_ASSETS = [
-  './', './index.html', './1.html',
+// sw.js — cache HTML network-first, assets cache-first, auto-update on SW change
+
+const STATIC_CACHE = 'static';    // single stable name: no manual bumps
+const ASSETS = [
+  './',
+  './index.html',
   './manifest.json',
-  './mcq icon.png', './logo 2.png', './apple-touch-icon.png',
+  './mcq icon.png',
+  './logo 2.png',
+  './apple-touch-icon.png',
 ];
 
-// Install: pre-cache core assets, then become active immediately
-self.addEventListener('install', (event) => {
+// Install: precache core files, then activate immediately
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(STATIC_CACHE).then(cache => cache.addAll(ASSETS))
   );
-  self.skipWaiting();                               // ← don’t wait for old SW to die
+  self.skipWaiting();
 });
 
-// Activate: clean old caches and take control of open tabs
-self.addEventListener('activate', (event) => {
+// Activate: claim clients and purge any non-current caches
+self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith('static-') && k !== STATIC_CACHE)
-                          .map(k => caches.delete(k)));
-    await self.clients.claim();                     // ← control existing pages
-    // Tell all clients a new SW is active (they can auto-refresh)
+    await Promise.all(keys.filter(k => k !== STATIC_CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+
+    // Tell any open pages a new SW is active (pages can auto-refresh)
     const clients = await self.clients.matchAll({ includeUncontrolled: true });
     clients.forEach(c => c.postMessage({ type: 'SW_ACTIVE' }));
   })());
 });
 
-// Fetch strategy:
-//  - HTML (navigation): network-first (fall back to cache if offline)
-//  - Other requests: cache-first (fall back to network, then stash)
-self.addEventListener('fetch', (event) => {
+// Fetch:
+// - Navigations/HTML → network-first (fresh when online), fallback to cache
+// - Other GETs (same-origin) → cache-first, then network and stash
+self.addEventListener('fetch', event => {
   const req = event.request;
-  const isNavigation = req.mode === 'navigate' ||
-                       (req.headers.get('accept') || '').includes('text/html');
+  if (req.method !== 'GET') return;
 
-  if (isNavigation) {
+  const isHTML =
+    req.mode === 'navigate' ||
+    (req.headers.get('accept') || '').includes('text/html');
+
+  if (isHTML) {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req, { cache: 'no-store' });
-        // Optionally update cached copy of the shell
+        // keep a copy so offline loads work
         const cache = await caches.open(STATIC_CACHE);
-        cache.put(req, fresh.clone()).catch(()=>{});
+        cache.put(req, fresh.clone()).catch(() => {});
         return fresh;
       } catch {
-        const cached = await caches.match(req);
-        return cached || caches.match('./'); // final fallback
+        // offline fallback to cached doc (try exact URL, then index)
+        return (await caches.match(req)) ||
+               (await caches.match('./index.html')) ||
+               Response.error();
       }
     })());
     return;
   }
 
-  // Static & API assets
+  // Non-HTML GETs
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+
   event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-    try {
-      const res = await fetch(req);
-      const cache = await caches.open(STATIC_CACHE);
-      // Only cache safe GETs
-      if (req.method === 'GET' && res.ok) cache.put(req, res.clone());
-      return res;
-    } catch {
-      return cached || Response.error();
+    // Try cache first for same-origin assets
+    if (sameOrigin) {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      try {
+        const res = await fetch(req);
+        if (res.ok) (await caches.open(STATIC_CACHE)).put(req, res.clone());
+        return res;
+      } catch {
+        return cached || Response.error();
+      }
+    } else {
+      // third-party requests: just go to network (don’t cache)
+      try { return await fetch(req); } catch { return Response.error(); }
     }
   })());
+});
+
+// Optional: allow page to force immediate activation after update
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
