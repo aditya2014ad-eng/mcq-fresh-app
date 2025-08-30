@@ -7,7 +7,7 @@
 <title>MCQ Q-Bank</title>
 
 <!-- PWA manifest & theme -->
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=5">
 <meta name="theme-color" content="#1f6feb">
 <!-- Optional favicons (ensure these files exist in the same folder) -->
 <link rel="icon" type="image/png" sizes="192x192" href="mcq icon.png">
@@ -52,6 +52,12 @@
   .opt { padding:8px; border:1px solid var(--border); border-radius:10px; background:var(--opt-bg); }
   .opt.correct { border-color:#2e7d32; }
   .opt.wrong { border-color:#c62828; }
+  /* Tag editor UI */
+  .metaRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:var(--opt-bg);font-size:12px}
+  .chip button{border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1}
+  .metaRow input[type="text"]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--opt-bg);color:var(--ink)}
+  .metaRow select,.metaRow input[type="checkbox"]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--opt-bg);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -87,6 +93,7 @@
       <button id="deleteSet" class="pill">🗑️ Delete Set</button>
       <button id="exportSet" class="pill">⬇️ Export Set</button>
       <button id="exportAll" class="pill">⬇️ Export All</button>
+      <button id="exportNormalized" class="pill">⬇️ Export Current (with meta)</button>
       <input id="importSetFile" type="file" accept=".json" style="display:none" />
       <button id="importSet" class="pill">⬆️ Import Set</button>
       <input id="importBankFile" type="file" accept=".json" style="display:none" />
@@ -318,6 +325,49 @@ function parseMCQ(text){
   const ANS_RE = /^\s*(?:\*\*)?\s*(?:ans|answer|correct)\b[^:]*[:=\-]\s*(.*)$/i;
   // Explanation labels (allow "exp:")
   const EXP_RE = /^\s*(?:\*\*)?\s*(?:exp|explanation)\b[^:]*[:=\-]\s*(.+)$/i;
+
+  // ---- Metadata lines & inline tokens (E/M/D, HYT, tags, id) ----
+  const META_TAGS_RE = /^\s*(?:\*\*)?\s*(tags?|labels?)\s*:\s*(.+)$/i;        // Tags: cardio, pediatrics
+  const META_ID_RE   = /^\s*(?:\*\*)?\s*(id|qid)\s*:\s*(.+)$/i;               // ID: Q-123
+  const META_DIFF_RE = /^\s*(?:\*\*)?\s*(difficulty|level|d|diff)\s*:\s*(.+)$/i; // Difficulty: easy|medium|difficult|E/M/D
+  const META_HYT_RE  = /^\s*(?:\*\*)?\s*(hyt|high\s*yield(?:\s*topic)?)\s*:\s*(.*)$/i; // HYT: true/yes
+
+  // Inline tokens anywhere in text: [[tags: cardio, endocrine]] [[d:M]] [[hyt:true]]
+  const META_INLINE  = /\[\[\s*(tags?|labels?|id|qid|difficulty|level|d|diff|hyt|flag|star|bookmark)\s*:\s*([^\]]*)\]\]/ig;
+
+  function normalizeDifficulty(v){
+    const s = String(v||'').trim().toLowerCase();
+    if (/^(e|easy)$/i.test(s)) return 'easy';
+    if (/^(m|med|medium)$/i.test(s)) return 'medium';
+    if (/^(d|diff|hard|difficult)$/i.test(s)) return 'difficult';
+    return '';
+  }
+  function toBool(v){
+    const s = String(v||'').trim().toLowerCase();
+    return !!(s === '' || /^(true|yes|y|1|⭐|\*|on|high|hyt)$/i.test(s));
+    // empty value defaults to true so [[hyt:]] works
+  }
+  // Remove inline meta tokens from visible text but collect into meta object
+  function absorbInlineMeta(str, meta){
+    if (!str) return str;
+    return str.replace(META_INLINE, (_all, key, val) => {
+      key = String(key||'').toLowerCase();
+      val = String(val||'').trim();
+
+      if (key === 'tags' || key === 'labels'){
+        const parts = val.split(/[,\|]/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+        meta.tags = Array.from(new Set([...(meta.tags||[]), ...parts]));
+      } else if (key === 'id' || key === 'qid'){
+        if (!meta.id) meta.id = val;
+      } else if (key === 'difficulty' || key === 'level' || key === 'd' || key === 'diff'){
+        const d = normalizeDifficulty(val);
+        if (d) meta.difficulty = d;
+      } else if (key === 'hyt' || key === 'flag' || key === 'star' || key === 'bookmark'){
+        meta.hyt = toBool(val);
+      }
+      return ''; // strip token from rendered text
+    });
+  }
 
   // Remove common leading "Q#/Q./1)" and markdown heading hashes
   const STRIP_Q_PREFIX = (s) => String(s)
@@ -559,7 +609,37 @@ function parseMCQ(text){
 }
 
 function renderQuiz(){
-  quizEl.innerHTML=QUIZ.map((q,i)=>`
+  quizEl.innerHTML=QUIZ.map((q,i)=>{
+    // Ensure meta is initialized for each question
+    META.ensureItemMeta(q);
+    const meta = q.meta || {};
+    // Difficulty select options
+    const diffOpts = ['','easy','medium','difficult'];
+    const diffLabels = {'':'—','easy':'Easy','medium':'Medium','difficult':'Difficult'};
+    // Tag chips
+    const tagChips = (meta.tags||[]).map(tag =>
+      `<span class="chip">${escapeHtml(tag)} <button title="Remove tag" onclick="META.removeItemTag(${i},'${escapeHtml(tag)}')">❌</button></span>`
+    ).join(' ');
+    // Tag input id for this question
+    const tagInputId = `tagInput${i}`;
+    // Difficulty select
+    const diffSel = `<select onchange="META.setItemDifficulty(${i}, this.value)">
+      ${diffOpts.map(d => `<option value="${d}"${meta.difficulty===d?' selected':''}>${diffLabels[d]}</option>`).join('')}
+    </select>`;
+    // HYT checkbox
+    const hytChk = `<label style="display:inline-flex;align-items:center;gap:2px;">
+      <input type="checkbox" onchange="META.setItemHYT(${i}, this.checked)"${meta.hyt ? ' checked' : ''}> HYT
+    </label>`;
+    // Tag adder
+    const tagAdder = `<input type="text" id="${tagInputId}" placeholder="Add tag" style="width:90px;">
+      <button title="Add tag" onclick="META.addItemTag(${i}, document.getElementById('${tagInputId}').value);document.getElementById('${tagInputId}').value='';">➕</button>`;
+    // Meta controls row
+    const metaRow = `<div class="metaRow">
+      <span>Difficulty: ${diffSel}</span>
+      ${hytChk}
+      <span>Tags: ${tagAdder} ${tagChips}</span>
+    </div>`;
+    return `
     <div class="q">
       <div>${i+1}. ${mdInline(q.stem)}</div>
       <ul class="opts">
@@ -573,8 +653,10 @@ function renderQuiz(){
         }).join("")}
       </ul>
       ${FINISHED?`<div><b>Explanation:</b> ${mdInline(q.explanation||"")}</div>`:""}
+      ${metaRow}
     </div>
-  `).join("");
+    `;
+  }).join("");
   quizEl.querySelectorAll('input[type="radio"]').forEach(inp=>{
     inp.onchange=()=>{ const idx=+inp.name.replace("q",""); ANSWERS[idx]=+inp.value; updateScore(); };
   });
@@ -674,6 +756,178 @@ document.getElementById('tPause').onclick=()=>clearInterval(tick);
 document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textContent=fmt((+mins.value||20)*60); try{ updateScore(); }catch{};};
 </script>
 
+<script id="meta-helpers">
+/* ===================== MCQ Metadata Helpers (E/M/D, HYT, tags, ID) ===================== */
+(function(){
+  // Public API (attached to window for now so later UI can call these)
+  const API = {};
+
+  function emptyMeta(){ return { difficulty:'', hyt:false, tags:[], id:'' }; }
+  function cloneMeta(m){
+    if (!m) return emptyMeta();
+    return {
+      difficulty: (m.difficulty||'').toString(),
+      hyt: !!m.hyt,
+      tags: Array.isArray(m.tags) ? Array.from(new Set(m.tags.map(__normTag))).filter(Boolean) : [],
+      id: (m.id||'').toString()
+    };
+  }
+  function __normTag(t){ return String(t||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+  // Convert meta → compact inline token string that can live inside question or explanation
+  // Example:  [[d:M]] [[hyt:true]] [[tags: cardio, endocrine]] [[id: Q-123]]
+  function metaToInline(meta){
+    const m = cloneMeta(meta);
+    const parts = [];
+    if (m.difficulty) parts.push(`[[d:${m.difficulty}]]`);
+    if (m.hyt)        parts.push(`[[hyt:true]]`);
+    if (m.tags?.length) parts.push(`[[tags: ${m.tags.join(', ')}]]`);
+    if (m.id)         parts.push(`[[id:${m.id}]]`);
+    return parts.join(' ');
+  }
+
+  // Regexes for line-based meta and inline meta tokens
+  const META_LINE = {
+    tags: /^\s*(?:\*\*)?\s*(?:tags?|labels?)\s*:\s*(.+)$/i,
+    id:   /^\s*(?:\*\*)?\s*(?:id|qid)\s*:\s*(.+)$/i,
+    diff: /^\s*(?:\*\*)?\s*(?:difficulty|level|d|diff)\s*:\s*(.+)$/i,
+    hyt:  /^\s*(?:\*\*)?\s*(?:hyt|high\s*yield(?:\s*topic)?)\s*:\s*(.*)$/i
+  };
+  const META_INLINE = /\[\[\s*(tags?|labels?|id|qid|difficulty|level|d|diff|hyt|flag|star|bookmark)\s*:\s*([^\]]*)\]\]/ig;
+
+  function normalizeDifficulty(v){
+    const s = String(v||'').trim().toLowerCase();
+    if (/^(e|easy)$/i.test(s)) return 'easy';
+    if (/^(m|med|medium)$/i.test(s)) return 'medium';
+    if (/^(d|diff|hard|difficult)$/i.test(s)) return 'difficult';
+    return '';
+  }
+  function toBool(v){
+    const s = String(v||'').trim().toLowerCase();
+    return !!(s === '' || /^(true|yes|y|1|⭐|\*|on|high|hyt)$/i.test(s));
+  }
+
+  // Extract meta from free text (both line-based and inline), returning cleaned text and a meta object
+  function stripAndExtractMeta(text){
+    let meta = emptyMeta();
+    let body = String(text||'');
+
+    // Pass 1: line-based meta lines — remove them from body
+    const lines = body.split(/\r?\n/);
+    const kept = [];
+    for (const L of lines){
+      let m;
+      if ((m = L.match(META_LINE.tags))){
+        const parts = String(m[1]||'').split(/[,\|]/).map(__normTag).filter(Boolean);
+        meta.tags = Array.from(new Set([...(meta.tags||[]), ...parts]));
+        continue;
+      }
+      if ((m = L.match(META_LINE.id))){
+        meta.id = (m[1]||'').trim();
+        continue;
+      }
+      if ((m = L.match(META_LINE.diff))){
+        const d = normalizeDifficulty(m[1]||''); if (d) meta.difficulty = d;
+        continue;
+      }
+      if ((m = L.match(META_LINE.hyt))){
+        meta.hyt = toBool(m[1]||'');
+        continue;
+      }
+      kept.push(L);
+    }
+    body = kept.join('\n');
+
+    // Pass 2: inline tokens [[...]] — remove from body while absorbing values
+    body = body.replace(META_INLINE, (_all, key, val) => {
+      key = String(key||'').toLowerCase();
+      val = String(val||'').trim();
+
+      if (key === 'tags' || key === 'labels'){
+        const parts = val.split(/[,\|]/).map(__normTag).filter(Boolean);
+        meta.tags = Array.from(new Set([...(meta.tags||[]), ...parts]));
+      } else if (key === 'id' || key === 'qid'){
+        if (!meta.id) meta.id = val;
+      } else if (key === 'difficulty' || key === 'level' || key === 'd' || key === 'diff'){
+        const d = normalizeDifficulty(val);
+        if (d) meta.difficulty = d;
+      } else if (key === 'hyt' || key === 'flag' || key === 'star' || key === 'bookmark'){
+        meta.hyt = toBool(val);
+      }
+      return ''; // strip token from visible text
+    });
+
+    // Tidy stray double spaces after stripping
+    body = body.replace(/[ \t]{2,}/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+    return { text: body, meta };
+  }
+
+  function mergeMeta(base, add){
+    const a = cloneMeta(base);
+    const b = cloneMeta(add);
+    return {
+      difficulty: b.difficulty || a.difficulty,
+      hyt: !!(a.hyt || b.hyt),
+      tags: Array.from(new Set([...(a.tags||[]), ...(b.tags||[])])),
+      id: b.id || a.id
+    };
+  }
+
+  // Attach meta container to a quiz item if missing
+  function ensureItemMeta(item){
+    if (!item.meta) item.meta = emptyMeta();
+    // normalize fields
+    item.meta = cloneMeta(item.meta);
+    return item.meta;
+  }
+
+  // --- Item update helpers (will be used by UI in the next step) ---
+  function setItemDifficulty(idx, val){
+    if (!Array.isArray(window.QUIZ)) return;
+    const q = window.QUIZ[idx]; if (!q) return;
+    const m = ensureItemMeta(q);
+    m.difficulty = normalizeDifficulty(val);
+    renderQuiz?.();
+  }
+  function setItemHYT(idx, bool){
+    if (!Array.isArray(window.QUIZ)) return;
+    const q = window.QUIZ[idx]; if (!q) return;
+    const m = ensureItemMeta(q);
+    m.hyt = !!bool;
+    renderQuiz?.();
+  }
+  function addItemTag(idx, tag){
+    tag = __normTag(tag);
+    if (!tag) return;
+    const q = window.QUIZ?.[idx]; if (!q) return;
+    const m = ensureItemMeta(q);
+    if (!m.tags.includes(tag)) m.tags.push(tag);
+    renderQuiz?.();
+  }
+  function removeItemTag(idx, tag){
+    tag = __normTag(tag);
+    const q = window.QUIZ?.[idx]; if (!q) return;
+    const m = ensureItemMeta(q);
+    m.tags = (m.tags||[]).filter(t => t !== tag);
+    renderQuiz?.();
+  }
+
+  // Expose
+  API.emptyMeta = emptyMeta;
+  API.cloneMeta = cloneMeta;
+  API.metaToInline = metaToInline;
+  API.stripAndExtractMeta = stripAndExtractMeta;
+  API.mergeMeta = mergeMeta;
+  API.ensureItemMeta = ensureItemMeta;
+  API.setItemDifficulty = setItemDifficulty;
+  API.setItemHYT = setItemHYT;
+  API.addItemTag = addItemTag;
+  API.removeItemTag = removeItemTag;
+
+  window.META = API;
+})();
+</script>
+
 </script>
 
 <script>
@@ -712,13 +966,35 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
 </script>
 
 <script>
-// Register Service Worker for PWA install/offline
+// Register Service Worker + background update checks + one-time auto-refresh on new version
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
-    .then(reg => {
+  (async function () {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js');
       console.log('SW registered', reg.scope || '');
-    })
-    .catch(err => console.error('SW registration failed:', err));
+
+      // Pull updates when the tab becomes visible and every 10 minutes
+      const check = () => reg.update().catch(()=>{});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      setInterval(check, 10 * 60 * 1000);
+
+      // If the newly installed SW becomes active, refresh this page once
+      let refreshed = false;
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'SW_ACTIVE' && !refreshed) {
+          refreshed = true;
+          location.reload();
+        }
+      });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshed) { refreshed = true; location.reload(); }
+      });
+    } catch (err) {
+      console.warn('SW registration/update issue:', err);
+    }
+  })();
 }
 </script>
 
