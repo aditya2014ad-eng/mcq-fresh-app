@@ -39,6 +39,14 @@
   .toolbar { display:flex; gap:10px; align-items:center; }
   .pill { background:var(--pill-bg); color:var(--pill-ink); padding:8px 12px; border-radius:10px; border:1px solid var(--border); cursor:pointer; font-size:14px; }
   .pill:active{ transform:translateY(1px); }
+  .pill.sm{ padding:4px 8px; font-size:12px; }
+  .pill.ghost{ background:transparent; color:var(--pill-ink); }
+  .pill.tiny{ padding:2px 6px; font-size:12px; }
+  .pill.active{ 
+    background: var(--header-bg); 
+    color: var(--header-ink); 
+    border-color: var(--header-bg);
+  }
 
   main { max-width:900px; margin:20px auto; padding:12px; }
   .card { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:18px; }
@@ -55,6 +63,7 @@
   /* Tag editor UI */
   .metaRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
   .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--border);border-radius:999px;background:var(--opt-bg);font-size:12px}
+  .chip.x{background:#ffe6e6;border-color:#f1b0b0;color:#b00020}
   .chip button{border:none;background:transparent;cursor:pointer;font-size:14px;line-height:1}
   .metaRow input[type="text"]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--opt-bg);color:var(--ink)}
   .metaRow select,.metaRow input[type="checkbox"]{padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--opt-bg);color:var(--ink)}
@@ -94,16 +103,35 @@
       <button id="exportSet" class="pill">⬇️ Export Set</button>
       <button id="exportAll" class="pill">⬇️ Export All</button>
       <button id="exportNormalized" class="pill">⬇️ Export Current (with meta)</button>
-      <input id="importSetFile" type="file" accept=".json" style="display:none" />
-      <button id="importSet" class="pill">⬆️ Import Set</button>
-      <input id="importBankFile" type="file" accept=".json" style="display:none" />
-      <button id="importBank" class="pill">⬆️ Import Bank</button>
     </div>
 
     <div class="row" style="margin-top:8px">
       <input id="txtFile" type="file" accept=".txt,.md" />
       <button id="loadBtn" class="pill">📂 Load File</button>
       <button id="exampleBtn" class="pill">✨ Insert Example</button>
+    </div>
+
+    <!-- Section filter UI -->
+    <div class="row" id="sectionFilterRow" style="margin-top:8px">
+      <label class="pill" style="display:flex;align-items:center;gap:8px">
+        Section
+        <select id="sectionFilter" style="min-width:200px;background:var(--pill-bg);color:var(--pill-ink);border:1px solid var(--border);border-radius:8px;padding:6px 8px">
+          <option value="">All sections</option>
+        </select>
+      </label>
+      <!-- HYT-only label will go here if present in future -->
+      <label class="pill" style="display:flex;align-items:center;gap:8px">
+        Mode
+        <select id="modeFilter" style="min-width:180px;background:var(--pill-bg);color:var(--pill-ink);border:1px solid var(--border);border-radius:8px;padding:6px 8px">
+          <option value="">All</option>
+          <option value="easy">Easy (E)</option>
+          <option value="medium">Medium (M)</option>
+          <option value="difficult">Difficult (D)</option>
+          <option value="wrong">Wrong only (X)</option>
+          <option value="unattempted">Not attempted</option>
+        </select>
+      </label>
+      <button id="clearSectionFilter" class="pill">Clear</button>
     </div>
 
     <textarea id="raw"></textarea>
@@ -141,6 +169,11 @@ const loadBtn = document.getElementById('loadBtn');
 let QUIZ = [];
 let ANSWERS = {};
 let FINISHED = false;
+let SECTION_FILTER = '';
+let DIFF_FILTER = '';
+let HYT_ONLY = false;
+let WRONG_FILTER = '';
+let MODE_FILTER = '';
 
 // ---- Saved sets (localStorage) ----
 const LS_SETS_KEY = 'mcq-sets-v1';
@@ -318,6 +351,17 @@ function parseMCQ(text){
   window.__parseErrors = [];
   const T = normalize(text);
   const blocks = T.split(/\n{2,}/).map(b=>b.trim()).filter(Boolean);
+  // Helper: clean a section title by stripping bold/markdown hashes
+  const CLEAN_SECTION = (s) => String(s||'')
+    .replace(/^\s*\*{2}|\*{2}\s*$/g,'')
+    .replace(/^\s*#{1,6}\s*/,'')
+    .trim();
+
+  // Track current section across blocks
+  let currentSection = '';
+
+  // Section headings auto-capture (e.g., "**Section 1 ...**", "## Section ...", "Unit 3", "Chapter 2")
+  const SECTION_TITLE_RE = /^\s*(?:\*\*)?\s*(?:#{1,6}\s*)?(?:(?:section|unit|chapter|part)\b[^\n]*?|[A-Z][^\n]*?(?:–|-)\s*section\b[^\n]*?)\s*\*?\*?\s*$/i;
 
   // Option lines like: "- A) foo", "a) bar", "B. baz", "(c) qux", "2) d: quux"
   const OPT_RE = /^\s*(?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?([A-Da-d])\)?\s*[\)\.:\-]\s*(.+)$/;
@@ -469,12 +513,34 @@ function parseMCQ(text){
   const items = [];
 
   for (const rawBlock of blocks){
+    let workingBlock = rawBlock;
+    // Extract block-level metadata anywhere in the block (e.g., "Difficulty: Easy")
+    // and strip it from the visible text before we parse options/answers.
+    let blockMeta = {};
+    try {
+      if (window.META && typeof META.stripAndExtractMeta === 'function') {
+        const pack = META.stripAndExtractMeta(workingBlock);
+        workingBlock = pack.text || workingBlock;
+        blockMeta = pack.meta || {};
+      }
+    } catch {}
+    // If this block is just a section heading, update tracker and continue
+    if (SECTION_TITLE_RE.test(rawBlock) && !/^\s*(?:A|B|C|D)\s*[\)\.:\-]\s+/mi.test(rawBlock)) {
+      currentSection = CLEAN_SECTION(rawBlock);
+      continue;
+    }
     // Break into lines; if a single long line, try to split by option markers again
-    let lines = rawBlock.split('\n').map(l=>l.trim()).filter(Boolean);
+    let lines = workingBlock.split('\n').map(l=>l.trim()).filter(Boolean);
     if (lines.length === 1){
       const para = lines[0].replace(/\s{2,}/g,' ');
       const split = para.split(/\s(?=(?:\d+\s*[\)\.\-]\s*)?(?:[-–—•]\s*)?(?:\*\*)?\s*\(?[A-Da-d]\)?\s*[\)\.:]\s)/);
       if (split.length > 1) lines = [ split.shift(), ...split ];
+    }
+
+    // If the first non-empty line looks like a section heading, consume it and set currentSection
+    if (lines.length && SECTION_TITLE_RE.test(lines[0])) {
+      currentSection = CLEAN_SECTION(lines[0]);
+      lines.shift();
     }
 
     // 1) Build stem until first option/label line
@@ -568,7 +634,7 @@ function parseMCQ(text){
 
     // Rescue: if stem missing, rebuild from non-option/label content
     if (!stem){
-      const rescue = rawBlock.split('\n')
+      const rescue = workingBlock.split('\n')
         .filter(line => !OPT_RE.test(line) && !ANS_RE.test(line) && !EXP_RE.test(line))
         .map(STRIP_Q_PREFIX).join(' ').trim();
       stem = rescue;
@@ -595,7 +661,27 @@ function parseMCQ(text){
       continue;
     }
 
-    items.push({ stem, options, correctIndex, explanation });
+    // --- absorb inline metadata from stem/explanation and merge with section ---
+    let mergedMeta = (typeof META?.mergeMeta === 'function')
+      ? META.mergeMeta({ section: currentSection || '' }, blockMeta)
+      : Object.assign({ section: currentSection || '' }, blockMeta || {});
+    try {
+      if (window.META && typeof META.stripAndExtractMeta === 'function' && typeof META.mergeMeta === 'function') {
+        const stemPack = META.stripAndExtractMeta(stem);
+        stem = stemPack.text || stem;
+        mergedMeta = META.mergeMeta(mergedMeta, stemPack.meta || {});
+        if (explanation) {
+          const expPack = META.stripAndExtractMeta(explanation);
+          explanation = expPack.text || explanation;
+          mergedMeta = META.mergeMeta(mergedMeta, expPack.meta || {});
+        }
+      }
+    } catch (e) { /* non-fatal; meta parsing optional */ }
+
+    items.push({
+      stem, options, correctIndex, explanation,
+      meta: Object.assign({}, (typeof META?.emptyMeta === 'function' ? META.emptyMeta() : {}), mergedMeta)
+    });
   }
 
   try {
@@ -608,40 +694,95 @@ function parseMCQ(text){
   return items;
 }
 
+// ---- Section filter helpers ----
+function getSectionsFromQuiz() {
+  const set = new Set();
+  (QUIZ || []).forEach(q => {
+    const sec = q?.meta?.section;
+    if (sec && typeof sec === 'string' && sec.trim()) set.add(sec.trim());
+  });
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
+
+function prettySectionTitle(s){
+  let t = String(s || '').trim();
+  if (!t) return '';
+  // normalize dashes
+  t = t.replace(/[–—]/g, ' — ');
+  // Case 1: "...Section 3: Name" or "Section 3 - Name" or "Section 3 — Name"
+  let m = t.match(/section\s*(\d+)\s*[:\-–—]?\s*(.*)/i);
+  if (m){
+    let num = m[1];
+    let rest = (m[2] || '').trim();
+    // If no text after the number, try to capture "(Name)"
+    if (!rest){
+      const m2 = t.match(/section\s*\d+.*?\(([^)]+)\)/i);
+      if (m2) rest = m2[1].trim();
+    }
+    return rest ? `${num}: ${rest}` : `Section ${num}`;
+  }
+  // Case 2: "Unit/Chapter/Part N: Name"
+  m = t.match(/(?:unit|chapter|part)\s*(\d+)\s*[:\-–—]?\s*(.+)/i);
+  if (m){
+    return `${m[1]}: ${m[2].trim()}`;
+  }
+  // Fallback: strip a leading "Section:" label if present
+  t = t.replace(/^section\s*[:\-–—]?\s*/i, '').trim();
+  return t;
+}
+function populateSectionFilter() {
+  const sel = document.getElementById('sectionFilter');
+  if (!sel) return;
+  const cur = SECTION_FILTER || '';
+  const sections = getSectionsFromQuiz();
+  sel.innerHTML = '<option value="">All sections</option>' +
+    sections.map(s => {
+      const label = prettySectionTitle(s);
+      return `<option value="${s.replace(/"/g,'&quot;')}"${s===cur?' selected':''}>${label.replace(/"/g,'&quot;')}</option>`;
+    }).join('');
+}
+function applySectionFilter(value) {
+  SECTION_FILTER = (value || '').trim();
+  renderQuiz();
+  updateScore();
+  updateTimerForCurrentSet(true);
+}
+
 function renderQuiz(){
-  quizEl.innerHTML=QUIZ.map((q,i)=>{
+  const indices = (QUIZ || []).map((_,i)=>i).filter(i => {
+    const q    = QUIZ[i];
+    const sec  = q?.meta?.section || '';
+    const diff = (q?.meta?.difficulty || '').toLowerCase();
+    const hyt  = !!q?.meta?.hyt;
+    const wrong = !!q?.meta?.wrong;
+
+    if (SECTION_FILTER && sec !== SECTION_FILTER) return false;
+    // Unified mode filter (easy/medium/difficult/wrong/unattempted)
+    if (MODE_FILTER) {
+      if (MODE_FILTER === 'wrong'       && !wrong) return false;
+      if (MODE_FILTER === 'unattempted' && ANSWERS[i] != null) return false;
+      if (MODE_FILTER === 'easy'        && diff !== 'easy') return false;
+      if (MODE_FILTER === 'medium'      && diff !== 'medium') return false;
+      if (MODE_FILTER === 'difficult'   && diff !== 'difficult') return false;
+    }
+    if (HYT_ONLY      && !hyt)                   return false;
+    return true;
+  });
+  quizEl.innerHTML = indices.map((i, k) => {
+    const q = QUIZ[i];
     // Ensure meta is initialized for each question
     META.ensureItemMeta(q);
-    const meta = q.meta || {};
-    // Difficulty select options
-    const diffOpts = ['','easy','medium','difficult'];
-    const diffLabels = {'':'—','easy':'Easy','medium':'Medium','difficult':'Difficult'};
-    // Tag chips
-    const tagChips = (meta.tags||[]).map(tag =>
-      `<span class="chip">${escapeHtml(tag)} <button title="Remove tag" onclick="META.removeItemTag(${i},'${escapeHtml(tag)}')">❌</button></span>`
-    ).join(' ');
-    // Tag input id for this question
-    const tagInputId = `tagInput${i}`;
-    // Difficulty select
-    const diffSel = `<select onchange="META.setItemDifficulty(${i}, this.value)">
-      ${diffOpts.map(d => `<option value="${d}"${meta.difficulty===d?' selected':''}>${diffLabels[d]}</option>`).join('')}
-    </select>`;
-    // HYT checkbox
-    const hytChk = `<label style="display:inline-flex;align-items:center;gap:2px;">
-      <input type="checkbox" onchange="META.setItemHYT(${i}, this.checked)"${meta.hyt ? ' checked' : ''}> HYT
-    </label>`;
-    // Tag adder
-    const tagAdder = `<input type="text" id="${tagInputId}" placeholder="Add tag" style="width:90px;">
-      <button title="Add tag" onclick="META.addItemTag(${i}, document.getElementById('${tagInputId}').value);document.getElementById('${tagInputId}').value='';">➕</button>`;
-    // Meta controls row
-    const metaRow = `<div class="metaRow">
-      <span>Difficulty: ${diffSel}</span>
-      ${hytChk}
-      <span>Tags: ${tagAdder} ${tagChips}</span>
-    </div>`;
+    // Only header chips and core UI, no meta editor row
     return `
-    <div class="q">
-      <div>${i+1}. ${mdInline(q.stem)}</div>
+    <div class="q" data-i="${i}">
+      <div>
+        <span style="font-weight:700">${k+1}.</span>
+        ${q.meta?.section ? `<span class="chip" title="Section" style="margin-left:6px">${escapeHtml(prettySectionTitle(q.meta.section))}</span>` : ``}
+        ${q.meta?.difficulty ? `<span class="chip" data-kind="diff" title="Difficulty" style="margin-left:6px">Difficulty: ${escapeHtml(q.meta.difficulty.charAt(0).toUpperCase()+q.meta.difficulty.slice(1))}</span>` : ``}
+        ${q.meta?.hyt ? `<span class="chip" title="High-Yield Topic" style="margin-left:6px">HYT</span>` : ``}
+        ${q.meta?.wrong ? `<span class="chip x" title="Marked wrong" style="margin-left:6px">X</span>` : ``}
+        ${mdInline(q.stem)}
+      </div>
       <ul class="opts">
         ${q.options.map((opt,j)=>{
           let cls="opt";
@@ -653,18 +794,106 @@ function renderQuiz(){
         }).join("")}
       </ul>
       ${FINISHED?`<div><b>Explanation:</b> ${mdInline(q.explanation||"")}</div>`:""}
-      ${metaRow}
     </div>
     `;
   }).join("");
   quizEl.querySelectorAll('input[type="radio"]').forEach(inp=>{
-    inp.onchange=()=>{ const idx=+inp.name.replace("q",""); ANSWERS[idx]=+inp.value; updateScore(); };
+    inp.onchange = () => {
+      const qEl = inp.closest('.q');
+      const idx = Number(qEl?.dataset?.i ?? inp.name.replace('q',''));
+      const val = Number(inp.value);
+
+      // Persist answer
+      ANSWERS[idx] = val;
+
+      // Auto-mark wrong/right in meta (used by filters and chips)
+      const q = QUIZ[idx];
+      if (q && q.meta) {
+        q.meta.wrong = (val !== q.correctIndex);
+      }
+
+      // Update scorebar
+      try { updateScore(); } catch {}
+
+      // Toggle the red X chip inline (avoid full re-render so difficulty stays)
+      try {
+        const header = qEl?.firstElementChild;
+        if (header) {
+          let xChip = header.querySelector('.chip.x');
+          if (q?.meta?.wrong) {
+            if (!xChip) {
+              xChip = document.createElement('span');
+              xChip.className = 'chip x';
+              xChip.title = 'Marked wrong';
+              xChip.textContent = 'X';
+              // Insert after any existing chips (section/difficulty/HYT)
+              header.insertBefore(xChip, header.childNodes[2] || null);
+            }
+          } else if (xChip) {
+            xChip.remove();
+          }
+        }
+      } catch {}
+    };
   });
 }
+
+/* --- Ensure difficulty <select> changes always apply (delegated binding) --- */
+(function bindDifficultyDelegation(){
+  if (quizEl && !quizEl.__diffBound) {
+    quizEl.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t && t.matches('select.diffSel')) {
+        const idxAttr = t.getAttribute('data-idx');
+        const idxFromAncestor = t.closest('.q')?.getAttribute('data-i');
+        const idx = Number(idxAttr != null ? idxAttr : idxFromAncestor);
+        if (!Number.isNaN(idx) && window.META && typeof META.setItemDifficulty === 'function') {
+          META.setItemDifficulty(idx, t.value);
+        }
+      }
+    });
+    quizEl.__diffBound = true;
+  }
+})();
 function updateScore(){
+  const shown = (QUIZ || []).map((_,i)=>i).filter(i => {
+    const q    = QUIZ[i];
+    const sec  = q?.meta?.section || '';
+    const diff = (q?.meta?.difficulty || '').toLowerCase();
+    const hyt  = !!q?.meta?.hyt;
+    const wrong = !!q?.meta?.wrong;
+
+    if (SECTION_FILTER && sec !== SECTION_FILTER) return false;
+    // Unified mode filter (easy/medium/difficult/wrong/unattempted)
+    if (MODE_FILTER) {
+      if (MODE_FILTER === 'wrong'       && !wrong) return false;
+      if (MODE_FILTER === 'unattempted' && ANSWERS[i] != null) return false;
+      if (MODE_FILTER === 'easy'        && diff !== 'easy') return false;
+      if (MODE_FILTER === 'medium'      && diff !== 'medium') return false;
+      if (MODE_FILTER === 'difficult'   && diff !== 'difficult') return false;
+    }
+    if (HYT_ONLY      && !hyt)                   return false;
+    return true;
+  });
   let c=0,w=0,s=0;
-  QUIZ.forEach((q,i)=>{ const a=ANSWERS[i]; if(a==null) s++; else if(a===q.correctIndex) c++; else w++; });
-  scoreEl.textContent=`Answered: ${QUIZ.length-s}/${QUIZ.length} • Correct: ${c} • Wrong: ${w}`;
+  shown.forEach(i => {
+    const q = QUIZ[i];
+    const a = ANSWERS[i];
+    if (a == null) s++;
+    else if (a === q.correctIndex) c++;
+    else w++;
+  });
+  scoreEl.textContent = `Answered: ${shown.length - s}/${shown.length} • Correct: ${c} • Wrong: ${w}`;
+}
+
+function autoMarkWrong(){
+  if (!Array.isArray(QUIZ)) return;
+  QUIZ.forEach((q, i) => {
+    try { META.ensureItemMeta?.(q); } catch {}
+    const a = ANSWERS[i];
+    // mark as wrong only if answered and incorrect; clear otherwise
+    if (q && q.meta) q.meta.wrong = (a != null && a !== q.correctIndex);
+  });
 }
 
 // UI
@@ -672,6 +901,8 @@ document.getElementById('parseBtn').onclick=()=>{
   const err = document.getElementById('errBox');
   err.textContent = '';
   QUIZ = parseMCQ(rawEl.value||"");
+  SECTION_FILTER = '';
+  populateSectionFilter();
   // Show errBox if errors were collected
   const eb = document.getElementById('errBox');
   if (eb && window.__parseErrors && window.__parseErrors.length) {
@@ -690,10 +921,7 @@ document.getElementById('parseBtn').onclick=()=>{
   const finishBtnEl = document.getElementById('finishBtn');
   if (finishBtnEl) finishBtnEl.disabled = false;
 
-  const perQ = Math.max(1, QUIZ.length);
-  const minsInput = document.getElementById('mins');
-  if (minsInput) minsInput.value = perQ;
-  try { startTimer(perQ); } catch(e){}
+  updateTimerForCurrentSet(true);
 
   quizCard.style.display="block";
   FINISHED=false; ANSWERS={};
@@ -706,7 +934,13 @@ document.getElementById('finishBtn').onclick = () => {
 
   // Show results
   FINISHED = true;
+
+  // Auto-mark wrong answers (only those answered and incorrect)
+  try { autoMarkWrong(); } catch {}
+
+  // Re-render and refresh stats
   renderQuiz();
+  updateScore();
 };
 document.getElementById('shuffleQ').onclick = () => {
   if (!QUIZ.length) return;
@@ -718,6 +952,7 @@ document.getElementById('shuffleQ').onclick = () => {
   // Clear previous picks because indices changed
   ANSWERS = {};
   FINISHED = false;
+  populateSectionFilter();
   renderQuiz();
   updateScore();
 };
@@ -736,6 +971,7 @@ document.getElementById('shuffleO').onclick = () => {
     // Update the correctIndex to the new position of the former correct option
     q.correctIndex = order.indexOf(q.correctIndex);
   });
+  populateSectionFilter();
   // Clear any previous selections since option positions changed
   ANSWERS = {};
   FINISHED = false;
@@ -743,7 +979,18 @@ document.getElementById('shuffleO').onclick = () => {
   updateScore();
 };
 document.getElementById('hardReset').onclick=()=>{QUIZ=[];ANSWERS={};FINISHED=false;quizCard.style.display="none";scoreEl.textContent="";};
-document.getElementById('exampleBtn').onclick=()=>{rawEl.value="Q1. Example question?\nA) One\nB) Two\nC) Three\nD) Four\nAnswer: B\nExplanation: Demo";};
+document.getElementById('exampleBtn').onclick = () => {
+  rawEl.value = `## Section 1: Endocrinology — Pituitary
+
+1) Which hormone is primarily secreted by lactotropes in the anterior pituitary?
+A) Growth hormone
+B) Prolactin
+C) ACTH
+D) TSH
+Answer: B
+Explanation: Lactotropes synthesize and secrete prolactin; somatotropes make GH, corticotropes make ACTH, and thyrotropes make TSH.
+Difficulty: Easy`;
+};
 document.getElementById('cleanBtn').onclick=()=>{rawEl.value=normalize(rawEl.value);};
 document.getElementById('clearBtn').onclick=()=>{ rawEl.value=''; rawEl.focus(); };
 
@@ -751,31 +998,75 @@ document.getElementById('clearBtn').onclick=()=>{ rawEl.value=''; rawEl.focus();
 const mins=document.getElementById('mins'),tDisp=document.getElementById('tDisp'); let tick=null,deadline=0;
 const fmt=s=>{ const ss=Math.max(0, Math.floor(s)); return `${String(Math.floor(ss/60)).padStart(2,'0')}:${String(ss%60).padStart(2,'0')}`; };
 function startTimer(m){deadline=Date.now()+m*60*1000;if(tick)clearInterval(tick);tick=setInterval(()=>{let s=Math.max(0,Math.ceil((deadline-Date.now())/1000));tDisp.textContent=fmt(s);if(s<=0){clearInterval(tick);}},1000);}
+
+// --- Timer helpers for section filtering and current set ---
+function countShownQuestions(){
+  if (!Array.isArray(QUIZ) || !QUIZ.length) return 0;
+  return QUIZ.reduce((acc, q, i) => {
+    const sec   = q?.meta?.section || '';
+    const diff  = (q?.meta?.difficulty || '').toLowerCase();
+    const hyt   = !!q?.meta?.hyt;
+    const wrong = !!q?.meta?.wrong;
+
+    // Section filter
+    if (SECTION_FILTER && sec !== SECTION_FILTER) return acc;
+
+    // Unified mode filter
+    if (MODE_FILTER) {
+      if (MODE_FILTER === 'wrong'       && !wrong) return acc;
+      if (MODE_FILTER === 'unattempted' && ANSWERS[i] != null) return acc;
+      if (MODE_FILTER === 'easy'        && diff !== 'easy') return acc;
+      if (MODE_FILTER === 'medium'      && diff !== 'medium') return acc;
+      if (MODE_FILTER === 'difficult'   && diff !== 'difficult') return acc;
+    }
+
+    // Future toggle (kept for parity with render logic)
+    if (HYT_ONLY && !hyt) return acc;
+
+    return acc + 1;
+  }, 0);
+}
+function updateTimerForCurrentSet(autostart){
+  const shown = Math.max(1, countShownQuestions());
+  if (typeof mins !== 'undefined' && mins) mins.value = shown;
+  // Reset the display to the new baseline
+  if (typeof tDisp !== 'undefined' && tDisp) {
+    const baseSeconds = shown * 60;
+    tDisp.textContent = fmt(baseSeconds);
+  }
+  // Optionally (re)start countdown
+  if (autostart) {
+    try { startTimer(shown); } catch(e){}
+  }
+}
+
 document.getElementById('tStart').onclick=()=>startTimer(+mins.value||20);
 document.getElementById('tPause').onclick=()=>clearInterval(tick);
 document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textContent=fmt((+mins.value||20)*60); try{ updateScore(); }catch{};};
 </script>
 
 <script id="meta-helpers">
-/* ===================== MCQ Metadata Helpers (E/M/D, HYT, tags, ID) ===================== */
+/* ===================== MCQ Metadata Helpers (E/M/D, HYT, tags, ID, section) ===================== */
 (function(){
   // Public API (attached to window for now so later UI can call these)
   const API = {};
 
-  function emptyMeta(){ return { difficulty:'', hyt:false, tags:[], id:'' }; }
+  function emptyMeta(){ return { difficulty:'', hyt:false, tags:[], id:'', section:'', wrong:false }; }
   function cloneMeta(m){
     if (!m) return emptyMeta();
     return {
       difficulty: (m.difficulty||'').toString(),
       hyt: !!m.hyt,
       tags: Array.isArray(m.tags) ? Array.from(new Set(m.tags.map(__normTag))).filter(Boolean) : [],
-      id: (m.id||'').toString()
+      id: (m.id||'').toString(),
+      section: (m.section||'').toString(),
+      wrong: !!m.wrong
     };
   }
   function __normTag(t){ return String(t||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
   // Convert meta → compact inline token string that can live inside question or explanation
-  // Example:  [[d:M]] [[hyt:true]] [[tags: cardio, endocrine]] [[id: Q-123]]
+  // Example:  [[d:M]] [[hyt:true]] [[tags: cardio, endocrine]] [[id: Q-123]] [[section: ...]]
   function metaToInline(meta){
     const m = cloneMeta(meta);
     const parts = [];
@@ -783,6 +1074,8 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
     if (m.hyt)        parts.push(`[[hyt:true]]`);
     if (m.tags?.length) parts.push(`[[tags: ${m.tags.join(', ')}]]`);
     if (m.id)         parts.push(`[[id:${m.id}]]`);
+    if (m.section)    parts.push(`[[section: ${m.section}]]`);
+    if (m.wrong)     parts.push(`[[wrong:true]]`);
     return parts.join(' ');
   }
 
@@ -793,7 +1086,7 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
     diff: /^\s*(?:\*\*)?\s*(?:difficulty|level|d|diff)\s*:\s*(.+)$/i,
     hyt:  /^\s*(?:\*\*)?\s*(?:hyt|high\s*yield(?:\s*topic)?)\s*:\s*(.*)$/i
   };
-  const META_INLINE = /\[\[\s*(tags?|labels?|id|qid|difficulty|level|d|diff|hyt|flag|star|bookmark)\s*:\s*([^\]]*)\]\]/ig;
+  const META_INLINE = /\[\[\s*(tags?|labels?|id|qid|difficulty|level|d|diff|hyt|flag|star|bookmark|section|wrong)\s*:\s*([^\]]*)\]\]/ig;
 
   function normalizeDifficulty(v){
     const s = String(v||'').trim().toLowerCase();
@@ -853,6 +1146,10 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
         if (d) meta.difficulty = d;
       } else if (key === 'hyt' || key === 'flag' || key === 'star' || key === 'bookmark'){
         meta.hyt = toBool(val);
+      } else if (key === 'section') {
+        meta.section = val;
+      } else if (key === 'wrong') {
+        meta.wrong = toBool(val);
       }
       return ''; // strip token from visible text
     });
@@ -869,7 +1166,9 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
       difficulty: b.difficulty || a.difficulty,
       hyt: !!(a.hyt || b.hyt),
       tags: Array.from(new Set([...(a.tags||[]), ...(b.tags||[])])),
-      id: b.id || a.id
+      id: b.id || a.id,
+      section: b.section || a.section,
+      wrong: !!(a.wrong || b.wrong)
     };
   }
 
@@ -885,9 +1184,46 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
   function setItemDifficulty(idx, val){
     if (!Array.isArray(window.QUIZ)) return;
     const q = window.QUIZ[idx]; if (!q) return;
+
+    const v = normalizeDifficulty(val);
     const m = ensureItemMeta(q);
-    m.difficulty = normalizeDifficulty(val);
-    renderQuiz?.();
+    m.difficulty = v;
+
+    // Fast in-place UI update so chips/pills reflect immediately
+    try {
+      const card = document.querySelector(`.q[data-i="${idx}"]`);
+      if (card){
+        // Header chip: remove existing and insert updated one
+        const header = card.querySelector('div');
+        if (header){
+          header.querySelectorAll('.chip[data-kind="diff"]').forEach(n => n.remove());
+          if (v){
+            const chip = document.createElement('span');
+            chip.className = 'chip';
+            chip.setAttribute('data-kind','diff');
+            chip.title = 'Difficulty';
+            chip.style.marginLeft = '6px';
+            chip.textContent = 'Difficulty: ' + (v.charAt(0).toUpperCase()+v.slice(1));
+            // Insert after existing chips if any
+            header.insertBefore(chip, header.childNodes[2] || null);
+          }
+        }
+        // Dropdown select
+        const sel = card.querySelector('select.diffSel');
+        if (sel) sel.value = v;
+        // E / M / D pill buttons
+        card.querySelectorAll('.pill.sm.ghost').forEach(btn => {
+          const t = (btn.textContent || '').trim().toLowerCase();
+          if (t === 'e') btn.classList.toggle('active', v === 'easy');
+          else if (t === 'm') btn.classList.toggle('active', v === 'medium');
+          else if (t === 'd') btn.classList.toggle('active', v === 'difficult');
+        });
+      }
+    } catch {}
+
+    // Make sure filters & timer react to the change
+    try { updateScore?.(); } catch {}
+    try { updateTimerForCurrentSet?.(true); } catch {}
   }
   function setItemHYT(idx, bool){
     if (!Array.isArray(window.QUIZ)) return;
@@ -895,6 +1231,14 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
     const m = ensureItemMeta(q);
     m.hyt = !!bool;
     renderQuiz?.();
+  }
+  function setItemWrong(idx, bool){
+    if (!Array.isArray(window.QUIZ)) return;
+    const q = window.QUIZ[idx]; if (!q) return;
+    const m = ensureItemMeta(q);
+    m.wrong = !!bool;
+    renderQuiz?.();
+    updateScore?.();
   }
   function addItemTag(idx, tag){
     tag = __normTag(tag);
@@ -921,6 +1265,7 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
   API.ensureItemMeta = ensureItemMeta;
   API.setItemDifficulty = setItemDifficulty;
   API.setItemHYT = setItemHYT;
+  API.setItemWrong = setItemWrong;
   API.addItemTag = addItemTag;
   API.removeItemTag = removeItemTag;
 
@@ -931,6 +1276,21 @@ document.getElementById('tReset').onclick=()=>{clearInterval(tick);tDisp.textCon
 </script>
 
 <script>
+(function(){
+// Section filter bindings: instant apply on change
+  const sel = document.getElementById('sectionFilter');
+  const clearBtn = document.getElementById('clearSectionFilter');
+  if (sel) {
+    sel.addEventListener('change', () => applySectionFilter(sel.value));
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      applySectionFilter('');
+      populateSectionFilter();
+    });
+  }
+})();
+
 // PWA install button logic (shows when site is installable over HTTPS/localhost)
 (function(){
   let deferredPrompt = null;
@@ -998,5 +1358,50 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
+</script>
+<script>
+(function(){
+  // ---- Unified mode filter (Difficulty + Wrong) ----
+  (function bindModeFilter(){
+    const modeSel = document.getElementById('modeFilter');
+    if (modeSel) {
+      modeSel.addEventListener('change', () => {
+        MODE_FILTER = (modeSel.value || '').toLowerCase();
+        // keep legacy globals in sync (optional)
+        if (MODE_FILTER === 'wrong') {
+          WRONG_FILTER = 'wrong';
+          DIFF_FILTER = '';
+        } else if (MODE_FILTER === 'easy' || MODE_FILTER === 'medium' || MODE_FILTER === 'difficult') {
+          DIFF_FILTER = MODE_FILTER;
+          WRONG_FILTER = '';
+        } else {
+          // includes "", "unattempted" and any future non-difficulty modes
+          DIFF_FILTER = '';
+          WRONG_FILTER = '';
+        }
+        renderQuiz();
+        updateScore();
+        updateTimerForCurrentSet(true);
+      });
+    }
+    // Extend Clear to reset mode as well
+    const clearBtn = document.getElementById('clearSectionFilter');
+    if (clearBtn) {
+      const prev = clearBtn.onclick;
+      clearBtn.onclick = () => {
+        if (typeof prev === 'function') prev();
+        MODE_FILTER = '';
+        DIFF_FILTER = '';
+        WRONG_FILTER = '';
+        if (modeSel) modeSel.value = '';
+        renderQuiz();
+        updateScore();
+        updateTimerForCurrentSet(true);
+      };
+    }
+  })();
+})();
+</script>
+</script>
 </body>
 </html>
